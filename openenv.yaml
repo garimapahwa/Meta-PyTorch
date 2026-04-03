@@ -1,0 +1,306 @@
+# OpenEnv Specification
+# Distributed Incident War Room Environment Configuration
+
+name: devops_war_room_env
+version: "1.0.0"
+description: Real-world SRE debugging simulation environment for distributed microservices incidents
+
+# Environment metadata
+metadata:
+  author: "OpenEnv Community"
+  category: "simulators"
+  tags:
+    - "devops"
+    - "sre"
+    - "debugging"
+    - "microservices"
+    - "observability"
+  keywords:
+    - "production incidents"
+    - "incident management"
+    - "debugging"
+    - "observability"
+
+# Action space definition
+action_space:
+  type: "discrete_structured"
+  description: "Structured SRE debugging actions"
+  actions:
+    - name: "query_logs"
+      description: "Query logs from a microservice"
+      parameters:
+        service:
+          type: "enum"
+          values: ["auth", "payments", "db", "cache", "api_gateway"]
+          description: "Target microservice"
+      
+    - name: "query_metrics"
+      description: "Query metrics from a service"
+      parameters:
+        service:
+          type: "enum"
+          values: ["auth", "payments", "db", "cache", "api_gateway"]
+        metric:
+          type: "enum"
+          values: ["latency", "error_rate", "cpu", "memory", "connection_count", "queue_depth"]
+      
+    - name: "trace_request"
+      description: "Trace a distributed request"
+      parameters:
+        trace_id:
+          type: "string"
+          description: "Trace ID to follow"
+      
+    - name: "restart_service"
+      description: "Restart a microservice"
+      parameters:
+        service:
+          type: "enum"
+          values: ["auth", "payments", "db", "cache", "api_gateway"]
+      
+    - name: "rollback_deployment"
+      description: "Rollback service to previous version"
+      parameters:
+        service:
+          type: "enum"
+          values: ["auth", "payments", "db", "cache", "api_gateway"]
+        version:
+          type: "string"
+          description: "Version to rollback to"
+      
+    - name: "scale_service"
+      description: "Scale service replicas"
+      parameters:
+        service:
+          type: "enum"
+          values: ["auth", "payments", "db", "cache", "api_gateway"]
+        replicas:
+          type: "integer"
+          minimum: 1
+          maximum: 10
+      
+    - name: "prioritize_incident"
+      description: "Set incident priority for investigation"
+      parameters:
+        incident_id:
+          type: "string"
+      
+    - name: "resolve_incident"
+      description: "Mark incident as resolved with identified root cause"
+      parameters:
+        incident_id:
+          type: "string"
+        root_cause:
+          type: "string"
+          description: "Identified root cause"
+
+# Observation space definition
+observation_space:
+  type: "structured"
+  description: "Partially observable system metrics, alerts, and logs"
+  components:
+    alerts:
+      type: "array"
+      description: "Active alerts from monitoring system"
+      items:
+        - alert_id: "string"
+        - service: "enum[auth, payments, db, cache, api_gateway]"
+        - severity: "enum[critical, warning, info]"
+        - message: "string"
+        - timestamp: "integer"
+        - is_resolved: "boolean"
+    
+    services_status:
+      type: "array"
+      description: "Current status of all microservices"
+      items:
+        - name: "enum[auth, payments, db, cache, api_gateway]"
+        - is_healthy: "boolean"
+        - latency_ms: "float"
+        - error_rate: "float"
+        - cpu_percent: "float"
+        - memory_percent: "float"
+        - uptime_seconds: "integer"
+    
+    recent_logs:
+      type: "array"
+      description: "Recent log entries (partial view)"
+      items:
+        - timestamp: "integer"
+        - service: "enum[auth, payments, db, cache, api_gateway]"
+        - level: "enum[ERROR, WARN, INFO]"
+        - message: "string"
+        - trace_id: "string | null"
+        - is_relevant: "boolean"
+    
+    active_incidents:
+      type: "array"
+      description: "List of active incident IDs"
+      items: "string"
+    
+    metrics_summary:
+      type: "object"
+      description: "Aggregate metrics summary"
+      properties:
+        service_name:
+          latency_ms: "float"
+          error_rate: "float"
+          cpu_percent: "float"
+          memory_percent: "float"
+    
+    current_step:
+      type: "integer"
+      description: "Current step number"
+    
+    damage_score:
+      type: "float"
+      minimum: 0.0
+      maximum: 1.0
+      description: "System damage level"
+    
+    available_actions:
+      type: "array"
+      items: "string"
+      description: "List of available action types"
+
+# Reward specification
+reward:
+  type: "continuous"
+  range: [-1.0, 1.0]
+  description: "Reward for action quality"
+  components:
+    - "exploration_reward: reward for attempting to understand system"
+    - "correctness_bonus: reward for correct diagnosis"
+    - "damage_penalty: penalty for causing system degradation"
+    - "efficiency_bonus: reward for resolving with few steps"
+    - "diagnosis_penalty: penalty for incorrect root cause identification"
+
+# Task definitions
+tasks:
+  - task_id: "easy_0"
+    difficulty: "easy"
+    max_steps: 15
+    description: "Single incident with clear logs"
+    num_incidents: 1
+    has_cascading_failures: false
+  
+  - task_id: "easy_1"
+    difficulty: "easy"
+    max_steps: 15
+    description: "Single incident with clear logs (variant 2)"
+    num_incidents: 1
+    has_cascading_failures: false
+  
+  - task_id: "medium_0"
+    difficulty: "medium"
+    max_steps: 25
+    description: "Multiple services with misleading signals"
+    num_incidents: 2
+    has_cascading_failures: true
+  
+  - task_id: "medium_1"
+    difficulty: "medium"
+    max_steps: 25
+    description: "Multiple services with misleading signals (variant 2)"
+    num_incidents: 2
+    has_cascading_failures: true
+  
+  - task_id: "hard_0"
+    difficulty: "hard"
+    max_steps: 30
+    description: "Cascading failures with tradeoffs"
+    num_incidents: 3
+    has_cascading_failures: true
+  
+  - task_id: "hard_1"
+    difficulty: "hard"
+    max_steps: 30
+    description: "Complex multi-incident resolution"
+    num_incidents: 3
+    has_cascading_failures: true
+
+# Grading specification
+grading:
+  type: "deterministic"
+  metrics:
+    - name: "correctness"
+      weight: 0.5
+      description: "Accuracy of root cause identification"
+      range: [0.0, 1.0]
+    
+    - name: "efficiency"
+      weight: 0.3
+      description: "Number of steps to resolution"
+      range: [0.0, 1.0]
+    
+    - name: "damage"
+      weight: 0.2
+      description: "System damage minimization"
+      range: [0.0, 1.0]
+  
+  final_score:
+    type: "weighted_sum"
+    range: [0.0, 1.0]
+
+# Environment dynamics
+dynamics:
+  time_pressure: true
+  degradation_per_step: 0.02
+  cascading_failures: true
+  partial_observability: true
+  noisy_signals: true
+  stochastic_logs: false  # Deterministic for reproducibility
+  
+environment_constants:
+  num_services: 5
+  num_possible_incidents: 6
+  max_cascading_depth: 3
+  noise_log_ratio: 0.3
+
+# Evaluation criteria
+evaluation:
+  success_criteria:
+    - "All incidents must be resolved"
+    - "Final score must be > 0.0"
+  
+  failure_criteria:
+    - "Max steps exceeded without resolution"
+    - "Damage score >0.8 indicates system collapse"
+  
+  reproducibility: "Deterministic with seed"
+  deterministic: true
+
+# Validation requirements
+validation:
+  endpoints:
+    - "/reset"
+    - "/step"
+    - "/state"
+  
+  requirements:
+    - "HTTP 200 on /ping"
+    - "Docker build succeeds"
+    - "inference.py runs without error"
+    - "Graders produce scores in [0.0, 1.0]"
+    - "Environment deterministic with seed"
+
+# Deployment specification
+deployment:
+  hf_space_compatible: true
+  endpoints:
+    - "/ping"
+    - "/reset"
+    - "/step"
+    - "/state"
+    - "/grade"
+    - "/tasks"
+  
+  environment_variables:
+    - "API_BASE_URL"
+    - "MODEL_NAME"
+    - "HF_TOKEN"
+  
+  runtime_constraints:
+    max_seconds: 1200  # 20 minutes
+    cpu_vcpu: 2
+    ram_gb: 8
