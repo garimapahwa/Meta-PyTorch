@@ -11,6 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -28,7 +29,7 @@ EXPOSE 7860
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:7860/ping || exit 1
+    CMD sh -c 'curl -f "http://localhost:${PORT:-7860}/ping" || exit 1'
 
 # Run FastAPI server with uvicorn
-CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["sh", "-c", "PYTHONPYCACHEPREFIX=/tmp/pycache python -m uvicorn app:app --host 0.0.0.0 --port ${PORT:-7860}"]
