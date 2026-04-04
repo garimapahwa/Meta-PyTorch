@@ -181,11 +181,14 @@ source venv/bin/activate  # or `venv\Scripts\activate` on Windows
 # Install dependencies
 pip install -r requirements.txt
 
-# Set environment variables
-export OPENAI_API_KEY="sk-..."
-export API_BASE_URL="https://api.openai.com/v1"
-export MODEL_NAME="gpt-3.5-turbo"
-export HF_TOKEN="hf_..."
+# Create local config
+cp .env.example .env
+
+# Edit `.env` with any keys you need, for example:
+# OPENAI_API_KEY="sk-..."
+# DD_API_KEY="..."
+# DD_APP_KEY="..."
+# DD_SITE="datadoghq.com"
 ```
 
 ### Docker Setup (HF Space Compatible)
@@ -211,14 +214,16 @@ curl http://localhost:7860/ping
 Open `http://localhost:7860/` to launch the glassmorphism war-room UI. The dashboard lets you:
 - Reset and step the simulated incident environment
 - Inspect current state and grades
-- Pull logs, metrics, and APM traces from Datadog
-- Fall back to local simulator signals if Datadog credentials are not configured
+- Pull logs from Elasticsearch or Datadog
+- Pull metrics and APM traces from Datadog
+- Fall back to local simulator signals if external credentials are not configured
 
 ### Datadog Access
 Set these environment variables to connect the dashboard to Datadog:
 - `DD_API_KEY`
 - `DD_APP_KEY`
 - `DD_SITE` such as `datadoghq.com` or `datadoghq.eu`
+- `DD_LOG_INDEXES` optionally narrows the log search to a comma-separated set of indexes
 
 Datadog-backed API routes:
 - `/api/logs`
@@ -226,6 +231,25 @@ Datadog-backed API routes:
 - `/api/apm`
 
 If credentials are missing, these endpoints automatically return local simulator data so the UI continues to function.
+The app now loads `.env` automatically on startup, so local Datadog credentials work without manual `export` commands.
+
+### Elasticsearch Access
+Set these environment variables to use Elasticsearch for dashboard logs:
+- `ELASTICSEARCH_URL`
+- `ELASTICSEARCH_API_KEY` or `ELASTICSEARCH_USERNAME` and `ELASTICSEARCH_PASSWORD`
+- `ELASTICSEARCH_LOG_INDEX` such as `logs-*`
+- `ELASTICSEARCH_TIMESTAMP_FIELD` if your time field is not `@timestamp`
+- `ELASTICSEARCH_SERVICE_FIELD` if your service field is not `service`
+- `ELASTICSEARCH_MESSAGE_FIELD` if your message field is not `message`
+- `ELASTICSEARCH_LEVEL_FIELD` if your level field is not `log.level`
+
+Observability routes:
+- `/api/observability/status`
+- `/api/logs`
+- `/api/metrics`
+- `/api/apm`
+
+When `ELASTICSEARCH_URL` is configured, `/api/logs` uses Elasticsearch first. Metrics and APM remain Datadog-backed unless you extend those routes too.
 
 ### Running Inference Script
 ```bash
@@ -296,6 +320,31 @@ curl http://localhost:7860/grade
 
 # List tasks
 curl http://localhost:7860/tasks
+```
+
+### One-Command Local Start
+If you want the local Elasticsearch node and the FastAPI app to come up together:
+
+```bash
+./run-local.sh
+```
+
+This script:
+- starts Elasticsearch on `127.0.0.1:9200` if it is not already running
+- starts the app on `127.0.0.1:7860` if it is not already running
+- waits for both services to become healthy
+
+To stop the processes started by the script:
+
+```bash
+./stop-local.sh
+```
+
+### Hosting
+For a public deployment path and production checklist, see:
+
+```text
+DEPLOYMENT.md
 ```
 
 ## Endpoints

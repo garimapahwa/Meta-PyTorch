@@ -300,8 +300,17 @@ class DevOpsWarRoomEnv:
 
         return observation, reward, done, reward_info
 
-    def _handle_query_logs(self, service: ServiceName) -> Tuple[float, Dict]:
+    def _handle_query_logs(self, service: Optional[ServiceName]) -> Tuple[float, Dict]:
         """Query logs from service"""
+        if service is None:
+            return -0.05, {
+                "action": "query_logs",
+                "service": None,
+                "result": "missing_service",
+                "components": {"validation": -0.05},
+                "note": "Choose a service before querying logs.",
+            }
+
         reward = 0.1  # Small reward for exploration
         info = {
             "action": "query_logs",
@@ -317,8 +326,18 @@ class DevOpsWarRoomEnv:
         
         return reward, info
 
-    def _handle_query_metrics(self, service: ServiceName, metric: MetricType) -> Tuple[float, Dict]:
+    def _handle_query_metrics(self, service: Optional[ServiceName], metric: Optional[MetricType]) -> Tuple[float, Dict]:
         """Query metrics from service"""
+        if service is None:
+            return -0.05, {
+                "action": "query_metrics",
+                "service": None,
+                "metric": metric.value if metric else None,
+                "result": "missing_service",
+                "components": {"validation": -0.05},
+                "note": "Choose a service before querying metrics.",
+            }
+
         reward = 0.1
         info = {
             "action": "query_metrics",
@@ -335,8 +354,17 @@ class DevOpsWarRoomEnv:
 
         return reward, info
 
-    def _handle_restart_service(self, service: ServiceName) -> Tuple[float, Dict]:
+    def _handle_restart_service(self, service: Optional[ServiceName]) -> Tuple[float, Dict]:
         """Attempt to restart service"""
+        if service is None:
+            return -0.1, {
+                "action": "restart_service",
+                "service": None,
+                "result": "missing_service",
+                "components": {"validation": -0.1},
+                "note": "Choose a service before restarting it.",
+            }
+
         reward = 0.0
         info = {
             "action": "restart_service",
@@ -364,8 +392,17 @@ class DevOpsWarRoomEnv:
 
         return reward, info
 
-    def _handle_rollback(self, service: ServiceName) -> Tuple[float, Dict]:
+    def _handle_rollback(self, service: Optional[ServiceName]) -> Tuple[float, Dict]:
         """Rollback service to previous version"""
+        if service is None:
+            return -0.1, {
+                "action": "rollback_deployment",
+                "service": None,
+                "result": "missing_service",
+                "components": {"validation": -0.1},
+                "note": "Choose a service before attempting a rollback.",
+            }
+
         reward = 0.0
         info = {
             "action": "rollback_deployment",
@@ -421,8 +458,18 @@ class DevOpsWarRoomEnv:
 
         return reward, info
 
-    def _handle_scale_service(self, service: ServiceName, replicas: Optional[int]) -> Tuple[float, Dict]:
+    def _handle_scale_service(self, service: Optional[ServiceName], replicas: Optional[int]) -> Tuple[float, Dict]:
         """Scale service to increase capacity"""
+        if service is None:
+            return -0.1, {
+                "action": "scale_service",
+                "service": None,
+                "replicas": replicas,
+                "result": "missing_service",
+                "components": {"validation": -0.1},
+                "note": "Choose a service before scaling it.",
+            }
+
         reward = 0.0
         info = {
             "action": "scale_service",
