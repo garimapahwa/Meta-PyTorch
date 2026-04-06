@@ -12,6 +12,35 @@ pinned: false
 
 A production-ready OpenEnv environment for **real-world SRE debugging simulation**. An AI agent operates as a Site Reliability Engineer inside a live war room, actively operating distributed microservices systems during simultaneous production incidents.
 
+## Quick Start
+
+Choose the path that matches how you want to use the project:
+
+- **Run the dashboard locally**
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -r requirements.txt
+  cp .env.example .env
+  PYTHONPYCACHEPREFIX=/tmp/pycache python -m uvicorn app:app --host 0.0.0.0 --port 7860
+  ```
+  Then open `http://localhost:7860`.
+
+- **Run the one-command local workflow**
+  ```bash
+  ./run-local.sh
+  ```
+  This starts the FastAPI app and uses one of three log modes:
+  - local Elasticsearch if available
+  - remote Elasticsearch if `ELASTICSEARCH_URL` is set
+  - local fallback/demo logs if no external log backend is configured
+
+- **Deploy to Hugging Face Spaces**
+  - Use the included `Dockerfile`
+  - Keep the README front matter at the top of this file
+  - Point the Space at a repo containing `app.py`, `Dockerfile`, `requirements.txt`, and `scripts/seed_project_errors_to_elastic.py`
+  - See `DEPLOYMENT.md` for the hosted setup checklist
+
 ## Overview
 
 ### Problem Statement
@@ -161,32 +190,38 @@ Each difficulty level has appropriate grading:
 - **Medium**: Penalize incorrect diagnoses, reward systematic exploration
 - **Hard**: Heavy penalty for inefficiency, bonus for optimal sequence
 
-## Files
+## Repository Layout
 
 ```
-devops_war_room_env/
-├── models.py              # Pydantic models (Action, Observation, etc.)
-├── environment.py         # Core OpenEnv implementation
-├── tasks.py              # Task definitions & incident scenarios
-├── graders.py            # Deterministic grading functions
-├── inference.py          # Baseline agent + logging
-├── app.py                # FastAPI server for HF Spaces
-├── openenv.yaml          # OpenEnv specification
-├── Dockerfile            # Container for deployment
-├── requirements.txt      # Python dependencies
-└── README.md            # This file
+Meta PyTorch/
+├── app.py                               # FastAPI app and dashboard UI
+├── environment.py                       # Core simulator implementation
+├── tasks.py                             # Incident scenarios and task catalog
+├── graders.py                           # Deterministic grading logic
+├── inference.py                         # Baseline inference runner
+├── models.py                            # Pydantic request/response models
+├── scripts/seed_project_errors_to_elastic.py
+│                                       # Demo log seeding utility
+├── reference-stack/                     # Optional sidecar demo services
+├── openenv.yaml                         # OpenEnv specification
+├── Dockerfile                           # Hugging Face / container deployment
+├── run-local.sh                         # Local bootstrap helper
+├── stop-local.sh                        # Local shutdown helper
+├── requirements.txt                     # Python dependencies
+└── README.md                            # Project documentation
 ```
 
 ## Installation
 
 ### Local Setup
 ```bash
-# Clone/setup
-cd devops_war_room_env/
+# Clone the repository
+git clone https://github.com/garimapahwa/Meta-PyTorch.git
+cd Meta-PyTorch
 
-# Create environment
-python -m venv venv
-source venv/bin/activate  # or `venv\Scripts\activate` on Windows
+# Create a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # on Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -194,12 +229,34 @@ pip install -r requirements.txt
 # Create local config
 cp .env.example .env
 
-# Edit `.env` with any keys you need, for example:
-# OPENAI_API_KEY="sk-..."
-# DD_API_KEY="..."
-# DD_APP_KEY="..."
-# DD_SITE="datadoghq.com"
+# Start the app
+PYTHONPYCACHEPREFIX=/tmp/pycache python -m uvicorn app:app --host 0.0.0.0 --port 7860
 ```
+
+Open `http://localhost:7860` after the server starts.
+
+### Minimal `.env` setup
+
+The app works without external observability credentials by falling back to simulator data and local replay logs. Start with `.env.example`, then optionally add:
+
+```bash
+DD_API_KEY=""
+DD_APP_KEY=""
+DD_SITE="datadoghq.com"
+
+ELASTICSEARCH_URL=""
+ELASTICSEARCH_API_KEY=""
+ELASTICSEARCH_USERNAME=""
+ELASTICSEARCH_PASSWORD=""
+ELASTICSEARCH_LOG_INDEX="logs-*"
+ELASTICSEARCH_TIMESTAMP_FIELD="@timestamp"
+ELASTICSEARCH_SERVICE_FIELD="service"
+ELASTICSEARCH_MESSAGE_FIELD="message"
+ELASTICSEARCH_LEVEL_FIELD="log.level"
+ELASTICSEARCH_VERIFY_TLS="true"
+```
+
+You only need Datadog or Elasticsearch variables if you want live external logs, metrics, or traces.
 
 ### Docker Setup (HF Space Compatible)
 ```bash
@@ -208,10 +265,7 @@ docker build -t devops-war-room:latest .
 
 # Run server
 docker run -p 7860:7860 \
-  -e OPENAI_API_KEY="sk-..." \
-  -e API_BASE_URL="https://api.openai.com/v1" \
-  -e MODEL_NAME="gpt-3.5-turbo" \
-  -e HF_TOKEN="hf_..." \
+  -e PORT=7860 \
   devops-war-room:latest
 
 # Test
@@ -227,6 +281,51 @@ Open `http://localhost:7860/` to launch the glassmorphism war-room UI. The dashb
 - Pull logs from Elasticsearch or Datadog
 - Pull metrics and APM traces from Datadog
 - Fall back to local simulator signals if external credentials are not configured
+
+### Recommended Local Workflows
+
+- **Fastest path for app-only development**
+  ```bash
+  source .venv/bin/activate
+  PYTHONPYCACHEPREFIX=/tmp/pycache python -m uvicorn app:app --host 0.0.0.0 --port 7860 --reload
+  ```
+
+- **One-command bootstrap**
+  ```bash
+  ./run-local.sh
+  ```
+  This is the best option when you want the app plus optional Elasticsearch integration with the least setup friction.
+
+- **Local fallback mode**
+  If you do not configure Datadog or Elasticsearch, the dashboard still works using:
+  - simulator logs from the environment
+  - locally replayed incident logs from `.run/local-demo-logs.jsonl`
+  - synthetic traces derived from the available local signals
+
+### Common API Flow
+
+If you are using the simulator programmatically or from curl, this is the usual sequence:
+
+1. Reset the environment with a task ID.
+2. Inspect logs, metrics, traces, or state.
+3. Step through actions until the incident is resolved.
+4. Read the final grade.
+
+Example:
+
+```bash
+curl -X POST http://localhost:7860/reset \
+  -H "Content-Type: application/json" \
+  -d '{"task_id": "easy_0"}'
+
+curl http://localhost:7860/state
+
+curl -X POST http://localhost:7860/step \
+  -H "Content-Type: application/json" \
+  -d '{"action_type": "QUERY_LOGS", "service": "db"}'
+
+curl http://localhost:7860/grade
+```
 
 ### Datadog Access
 Set these environment variables to connect the dashboard to Datadog:
@@ -260,6 +359,19 @@ Observability routes:
 - `/api/apm`
 
 When `ELASTICSEARCH_URL` is configured, `/api/logs` uses Elasticsearch first. Metrics and APM remain Datadog-backed unless you extend those routes too.
+
+### Choosing a Log Backend
+
+The app resolves providers in this order:
+
+1. Elasticsearch for `/api/logs` when `ELASTICSEARCH_URL` is configured
+2. Datadog for logs, metrics, and traces when Datadog credentials are configured
+3. Local fallback data when no external backend is available
+
+This means the dashboard stays usable in all three situations:
+- fully local demo mode
+- partially connected mode with Datadog only
+- hosted mode with a reachable Elasticsearch cluster
 
 ### Running Inference Script
 ```bash
@@ -354,6 +466,12 @@ To stop the processes started by the script:
 
 Set `SHUTDOWN_TIMEOUT=15` if you want the stop script to wait longer before force-killing a stuck process.
 
+Notes:
+- if `elasticsearch-9.3.2/` is present locally, the script can start a local Elasticsearch node
+- if `ELASTICSEARCH_URL` points to a remote cluster, the script skips local Elasticsearch startup
+- if neither is available, the script still starts the app in fallback mode
+- the app log is written to `.run/app.log`
+
 ### Reference Harness
 If you want a small broken service that emits real JSON logs into Elasticsearch for the dashboard to inspect:
 
@@ -407,12 +525,30 @@ For a public deployment path and production checklist, see:
 DEPLOYMENT.md
 ```
 
+### Hugging Face Spaces Notes
+
+For the Space to boot correctly, the repo used by Hugging Face should contain:
+
+- `README.md` with the Space front matter block at the top
+- `Dockerfile`
+- `app.py`
+- `requirements.txt`
+- `scripts/__init__.py`
+- `scripts/seed_project_errors_to_elastic.py`
+
+Use the Hugging Face Space URL for demos:
+
+```text
+https://huggingface.co/spaces/Ginnipahwa05/Meta-Pytorch
+```
+
 ## Endpoints
 
 ### Health & Status
 - `GET /` - Service info
 - `GET /ping` - Health check (HTTP 200)
 - `GET /health` - Detailed health
+- `GET /api/observability/status` - Active provider status and connectivity hints
 
 ### Core OpenEnv
 - `POST /reset` - Initialize environment, return observation
@@ -423,6 +559,12 @@ DEPLOYMENT.md
 - `GET /tasks` - List all tasks
 - `GET /tasks/{task_id}` - Get task details
 - `GET /grade` - Get final grade (after episode done)
+
+### Observability & Demo Data
+- `GET /api/logs` - Query Elasticsearch, Datadog, or local fallback logs
+- `GET /api/metrics` - Query Datadog or simulator-backed metrics
+- `GET /api/apm` - Query Datadog traces, Elastic-derived traces, or fallback traces
+- `POST /api/demo/seed-logs` - Seed demo incident logs into Elasticsearch when configured
 
 ## Validation Checklist
 
