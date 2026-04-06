@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meta-pytorch"
+version = "1.0.0"
+description = "Distributed incident war-room OpenEnv simulator for SRE debugging and observability workflows."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "Garima Pahwa" }
+]
+keywords = [
+  "openenv",
+  "sre",
+  "devops",
+  "observability",
+  "incident-response",
+  "simulation"
+]
+dependencies = [
+  "fastapi==0.104.1",
+  "uvicorn[standard]==0.24.0",
+  "pydantic==2.5.0",
+  "pydantic[email]==2.5.0",
+  "openai==1.3.3",
+  "numpy==1.24.3",
+  "python-json-logger==2.0.7",
+  "requests==2.31.0",
+  "httpx==0.25.1",
+  "python-dotenv==1.0.0",
+  "PyYAML==6.0.1",
+  "pytest==7.4.3",
+  "pytest-asyncio==0.21.1"
+]
+
+[tool.setuptools]
+py-modules = ["app", "environment", "graders", "inference", "models", "tasks"]
+
