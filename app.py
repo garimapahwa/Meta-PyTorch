@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 
 from environment import make_env, DevOpsWarRoomEnv
 from models import Action, ActionType, ServiceName, MetricType, Observation, Reward
+from scripts.seed_project_errors_to_elastic import docs_for_scenario
 from tasks import TASK_DEFINITIONS
 
 load_dotenv()
@@ -506,6 +507,60 @@ def _fetch_elasticsearch_logs(query: str = "*", service: Optional[str] = None, l
         "query": query or "*",
         "logs": logs,
         "note": f"Showing Elasticsearch logs from index pattern `{settings['index']}`.",
+    }
+
+
+def _concrete_index_name(index_pattern: str) -> str:
+    today = datetime.utcnow().strftime("%Y.%m.%d")
+    if "*" in index_pattern:
+        return index_pattern.replace("*", today)
+    return index_pattern
+
+
+def _bulk_lines(index_name: str, docs: List[Dict[str, Any]]) -> str:
+    parts: List[str] = []
+    for doc in docs:
+        parts.append(json.dumps({"index": {"_index": index_name}}))
+        parts.append(json.dumps(doc))
+    return "\n".join(parts) + "\n"
+
+
+def _seed_demo_logs_into_elasticsearch(scenario: str = "all") -> Dict[str, Any]:
+    settings = _get_elasticsearch_settings()
+    if not _elasticsearch_enabled(settings):
+        raise HTTPException(status_code=400, detail="Elasticsearch is not configured for this dashboard.")
+
+    docs = docs_for_scenario(scenario)
+    target_index = _concrete_index_name(settings["index"])
+    response = requests.post(
+        f"{settings['url']}/_bulk",
+        headers={
+            **_elastic_auth_headers(settings),
+            "Content-Type": "application/x-ndjson",
+        },
+        data=_bulk_lines(target_index, docs).encode("utf-8"),
+        timeout=15,
+        verify=settings["verify_tls"],
+    )
+
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Elasticsearch bulk seed failed: {response.text}")
+
+    body = response.json()
+    if body.get("errors"):
+        raise HTTPException(status_code=502, detail="Elasticsearch reported indexing errors while seeding demo logs.")
+
+    incident_ids = sorted({doc["incident_id"] for doc in docs})
+    return {
+        "status": "seeded",
+        "source": "elasticsearch",
+        "scenario": scenario,
+        "index": target_index,
+        "count": len(docs),
+        "service": "meta-pytorch-demo",
+        "query": "*",
+        "incident_ids": incident_ids,
+        "note": "Fresh demo incidents were written into Elasticsearch and are ready in the dashboard log stream.",
     }
 
 
@@ -2509,6 +2564,7 @@ def _dashboard_html() -> str:
                                 <label for="logService">Service</label>
                                 <select id="logService">
                                     <option value="">Any</option>
+                                    <option value="meta-pytorch-demo">meta-pytorch-demo</option>
                                     <option value="auth">auth</option>
                                     <option value="payments">payments</option>
                                     <option value="db">db</option>
@@ -2526,8 +2582,10 @@ def _dashboard_html() -> str:
                             </div>
                         </div>
                         <div class="history-row" id="logHistory"></div>
-                        <div class="btn-row" style="margin-top: 14px; grid-template-columns: 1fr;">
+                        <div class="btn-row" style="margin-top: 14px; grid-template-columns: repeat(3, minmax(0, 1fr));">
                             <button class="btn-primary" id="loadLogsBtn">Load Logs</button>
+                            <button class="btn-ghost" id="seedElasticDemoBtn" type="button">Seed Demo Logs</button>
+                            <button class="btn-ghost" id="loadElasticDemoBtn" type="button">Load Elastic Demo Logs</button>
                         </div>
                         <div class="note-box" style="margin-top: 14px;">
                             <strong>Log Query Context</strong>
@@ -4175,6 +4233,36 @@ def _dashboard_html() -> str:
             }
         }
 
+        async function seedElasticDemoLogs() {
+            try {
+                const data = await fetchJson("/api/demo/seed-logs", {
+                    method: "POST",
+                });
+                setBanner("info", "Demo logs seeded", data.note || `Seeded ${data.count || 0} demo logs into Elasticsearch.`, "Elasticsearch");
+                el("logService").value = data.service || "meta-pytorch-demo";
+                el("logQuery").value = data.query || "*";
+                el("logMinutes").value = "240";
+                el("logLimit").value = "25";
+                activateTab("logs");
+                await loadObservabilityStatus();
+                await loadLogs();
+            } catch (error) {
+                setBanner("error", "Demo log seed failed", String(error.message || error), "Elasticsearch");
+            }
+        }
+
+        async function loadElasticDemoLogs() {
+            el("logPreset").value = "all";
+            el("logService").value = "meta-pytorch-demo";
+            el("logQuery").value = "*";
+            el("logMinutes").value = "240";
+            el("logLimit").value = "25";
+            activateTab("logs");
+            setBanner("info", "Elastic demo filters applied", "The log workspace is now focused on the Elasticsearch demo incident stream.", "Logs");
+            await loadObservabilityStatus();
+            await loadLogs();
+        }
+
         async function loadMetrics() {
             try {
                 const metricView = metricViewDefinition(el("metricQuery").value);
@@ -4355,6 +4443,8 @@ def _dashboard_html() -> str:
         el("stepBtn").addEventListener("click", runStep);
         el("refreshBtn").addEventListener("click", refreshAll);
         el("loadLogsBtn").addEventListener("click", loadLogs);
+        el("seedElasticDemoBtn").addEventListener("click", seedElasticDemoLogs);
+        el("loadElasticDemoBtn").addEventListener("click", loadElasticDemoLogs);
         el("loadMetricsBtn").addEventListener("click", loadMetrics);
         el("loadApmBtn").addEventListener("click", loadApm);
         el("guidePrimaryBtn").addEventListener("click", runGuidePrimary);
@@ -4801,6 +4891,17 @@ async def api_logs(query: str = "*", service: Optional[str] = None, limit: int =
         raise
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to fetch logs from observability backend.")
+
+
+@app.post("/api/demo/seed-logs")
+async def api_seed_demo_logs(scenario: str = "all"):
+    """Seed demo observability incidents into the active Elasticsearch backend."""
+    try:
+        return _seed_demo_logs_into_elasticsearch(scenario=scenario)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to seed demo logs into Elasticsearch.")
 
 
 @app.get("/api/metrics")
