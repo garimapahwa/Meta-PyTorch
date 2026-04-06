@@ -9,6 +9,7 @@ Follows strict logging format.
 import os
 import json
 import sys
+from datetime import datetime, timezone
 from typing import Optional
 from openai import OpenAI, APIError
 
@@ -16,15 +17,35 @@ from environment import make_env
 from models import Action, ActionType, ServiceName, MetricType
 
 
-# Initialize OpenAI client with environment variables
+# Required submission environment variables.
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
-HF_TOKEN = os.getenv("HF_TOKEN", "")  # Used for HF Space deployment
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY", "sk-test"),
-    base_url=API_BASE_URL,
-)
+# Optional if you use from_docker_image().
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client: Optional[OpenAI] = None
+
+
+def emit_event(marker: str, payload: dict) -> None:
+    """Emit the exact structured stdout format expected by the evaluator."""
+    print(marker, flush=True)
+    print(json.dumps(payload), flush=True)
+
+
+def get_openai_client() -> Optional[OpenAI]:
+    """Create the OpenAI client only when credentials are available."""
+    global client
+    if client is not None:
+        return client
+    if not OPENAI_API_KEY:
+        return None
+    client = OpenAI(
+        api_key=OPENAI_API_KEY,
+        base_url=API_BASE_URL,
+    )
+    return client
 
 
 def get_agent_action(observation: dict, step: int, task_difficulty: str) -> Action:
@@ -64,7 +85,11 @@ Choose the most useful next action. Think step by step.
 """
         
         try:
-            response = client.chat.completions.create(
+            openai_client = get_openai_client()
+            if openai_client is None:
+                raise RuntimeError("OPENAI_API_KEY is not configured")
+
+            response = openai_client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=[
                     {"role": "system", "content": "You are an expert SRE. Choose one action."},
@@ -137,7 +162,7 @@ Choose the most useful next action. Think step by step.
             )
 
     except Exception as e:
-        print(f"Error in LLM call: {e}")
+        print(f"Error in LLM call: {e}", file=sys.stderr, flush=True)
         return Action(
             action_type=ActionType.QUERY_LOGS,
             service=ServiceName.API_GATEWAY,
@@ -159,12 +184,11 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
         "total_reward": 0.0,
     }
 
-    print("[START]")
-    print(json.dumps({
+    emit_event("[START]", {
         "task": task_id,
         "difficulty": env.task_config.get("difficulty"),
-        "timestamp": "2024-01-01T00:00:00Z",
-    }))
+        "timestamp": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+    })
 
     step_count = 0
     done = False
@@ -174,7 +198,7 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
 
         # Get action from agent (LLM)
         action = get_agent_action(
-            {"metrics_summary": obs.metrics_summary, "alerts": [a.dict() for a in obs.alerts]},
+            {"metrics_summary": obs.metrics_summary, "alerts": [a.model_dump() for a in obs.alerts]},
             step_count,
             env.task_config.get("difficulty", "easy"),
         )
@@ -183,7 +207,6 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
         obs, reward, done, info = env.step(action)
 
         # Log step (REQUIRED FORMAT)
-        print("[STEP]")
         step_log = {
             "step": step_count,
             "action": action.action_type.value,
@@ -192,7 +215,7 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
             "damage_score": round(float(env.damage_score), 4),
             "info": info,
         }
-        print(json.dumps(step_log))
+        emit_event("[STEP]", step_log)
 
         episode_data["steps"].append(step_log)
         episode_data["total_reward"] += reward.value
@@ -206,56 +229,30 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
         "damage": round(float(grade["damage"]), 4),
     }
 
-    print("[END]")
-    print(json.dumps({
+    emit_event("[END]", {
         "status": "completed",
         "steps_taken": step_count,
         "final_score": round(float(grade["score"]), 4),
         "resolved_incidents": env.resolved_incidents,
-    }))
+    })
 
     return episode_data
 
 
 def main():
-    """Run baseline inference on all tasks"""
-    print("DevOps War Room - Baseline Inference")
-    print("====================================\n")
-
-    tasks = ["easy_0", "easy_1", "medium_0", "medium_1", "hard_0", "hard_1"]
-    results = {}
-
-    for task_id in tasks:
-        print(f"\n--- Running task: {task_id} ---")
-        try:
-            result = run_episode(task_id=task_id, max_steps=30)
-            results[task_id] = {
-                "status": "success",
-                "final_score": result["final_grade"]["score"],
-            }
-            print(f"✓ Task {task_id} completed with score: {result['final_grade']['score']:.4f}")
-        except Exception as e:
-            print(f"✗ Task {task_id} failed: {e}")
-            results[task_id] = {
-                "status": "failed",
-                "error": str(e),
-            }
-
-    # Summary
-    print("\n\n=== SUMMARY ===")
-    successful = sum(1 for r in results.values() if r["status"] == "success")
-    print(f"Completed: {successful}/{len(tasks)} tasks")
-    
-    for task_id, result in results.items():
-        if result["status"] == "success":
-            score = result["final_score"]
-            print(f"{task_id}: {score:.4f}")
-        else:
-            print(f"{task_id}: FAILED")
-
-    return results
+    """Run a single evaluation episode with strict structured stdout only."""
+    task_id = os.getenv("TASK_ID", "easy_0")
+    max_steps = int(os.getenv("MAX_STEPS", "30"))
+    return run_episode(task_id=task_id, max_steps=max_steps)
 
 
 if __name__ == "__main__":
-    results = main()
-    sys.exit(0 if all(r["status"] == "success" for r in results.values()) else 1)
+    try:
+        main()
+        sys.exit(0)
+    except Exception as exc:
+        emit_event("[END]", {
+            "status": "failed",
+            "error": str(exc),
+        })
+        sys.exit(1)
