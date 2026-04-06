@@ -35,7 +35,7 @@ metrics_enabled=true
 write_to_logs_streams=false
 
 help() {
-  echo "Usage: sudo ./auto-detect.sh <arguments>"
+  echo "Usage: sudo ./auto_detect.sh <arguments>"
   echo ""
   echo "Arguments:"
   echo "  --install-key=<value>  Base64 Encoded API key that has priviledges to install integrations."

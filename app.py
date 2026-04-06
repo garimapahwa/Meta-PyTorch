@@ -4621,8 +4621,8 @@ async def api_observability_status():
         return _fetch_observability_status()
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to fetch observability status.")
 
 
 @app.get("/api/datadog/status")
@@ -4641,8 +4641,8 @@ async def api_logs(query: str = "*", service: Optional[str] = None, limit: int =
         return _fetch_datadog_logs(query=query, service=service, limit=limit, minutes=minutes)
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to fetch logs from observability backend.")
 
 
 @app.get("/api/metrics")
@@ -4652,8 +4652,8 @@ async def api_metrics(query: str = "avg:system.cpu.user{*}", service: Optional[s
         return _fetch_datadog_metrics(metric_query=query, service=service, points=points, minutes=minutes)
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to fetch metrics from observability backend.")
 
 
 @app.get("/api/apm")
@@ -4668,8 +4668,8 @@ async def api_apm(query: str = "service:*", service: Optional[str] = None, limit
         return _fetch_datadog_apm(query=query, service=service, limit=limit, minutes=minutes)
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to fetch APM data from observability backend.")
 
 
 if __name__ == "__main__":
