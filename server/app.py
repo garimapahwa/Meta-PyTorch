@@ -15,3 +15,10 @@ def main() -> None:
     port = int(os.getenv("PORT", "7860"))
     uvicorn.run("server.app:app", host=host, port=port)
 
+
+if __name__ == "__main__":
+    main()
+
+
+if __name__ == "__main__":
+    main()
