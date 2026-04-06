@@ -1,0 +1,8 @@
+version = 1
+revision = 1
+requires-python = ">=3.9"
+
+[[package]]
+name = "meta-pytorch"
+version = "1.0.0"
+source = { editable = "." }

@@ -21,6 +21,7 @@ keywords = [
   "simulation"
 ]
 dependencies = [
+  "openenv-core>=0.2.0",
   "fastapi==0.104.1",
   "uvicorn[standard]==0.24.0",
   "pydantic==2.5.0",
@@ -36,6 +37,11 @@ dependencies = [
   "pytest-asyncio==0.21.1"
 ]
 
+[project.scripts]
+server = "server.app:main"
+
 [tool.setuptools]
 py-modules = ["app", "environment", "graders", "inference", "models", "tasks"]
 
+[tool.setuptools.packages.find]
+include = ["server*"]
