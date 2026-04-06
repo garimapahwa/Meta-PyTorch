@@ -1,0 +1,58 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  orders-service:
+    build:
+      context: ./broken-orders-service
+    environment:
+      PORT: "8081"
+      SERVICE_NAME: orders-service
+      FAILURE_MODE: db_connection_leak
+      LOG_FILE: /var/log/reference/orders-service.log
+    ports:
+      - "8081:8081"
+    volumes:
+      - reference-logs:/var/log/reference
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.0
+    user: root
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - reference-logs:/var/log/reference:ro
+
+  dashboard:
+    build:
+      context: ..
+    environment:
+      PORT: "7860"
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_LOG_INDEX: broken-ref-logs-*
+      ELASTICSEARCH_SERVICE_FIELD: service
+      ELASTICSEARCH_MESSAGE_FIELD: message
+      ELASTICSEARCH_LEVEL_FIELD: log.level
+      ELASTICSEARCH_TIMESTAMP_FIELD: "@timestamp"
+      ELASTICSEARCH_VERIFY_TLS: "false"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "7860:7860"
+
+volumes:
+  reference-logs:

@@ -8,6 +8,8 @@ import os
 import json
 import time
 import base64
+import fnmatch
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -31,6 +33,10 @@ app = FastAPI(
 # Global environment instance (for HF Space stateful deployment)
 current_env: Optional[DevOpsWarRoomEnv] = None
 current_task_id: str = "easy_0"
+LOCAL_DEMO_LOG_FILE = os.getenv(
+    "LOCAL_DEMO_LOG_FILE",
+    os.path.join(os.path.dirname(__file__), ".run", "local-demo-logs.jsonl"),
+)
 
 
 def _get_source_env() -> Optional[DevOpsWarRoomEnv]:
@@ -135,6 +141,142 @@ def _build_datadog_search_query(query: str, service: Optional[str], default: str
     return " AND ".join(filters) if filters else default
 
 
+def _parse_timestamp(value: Any) -> float:
+    if value in (None, ""):
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return 0.0
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
+        try:
+            return datetime.fromisoformat(normalized).timestamp()
+        except ValueError:
+            try:
+                return time.mktime(time.strptime(normalized[:19], "%Y-%m-%dT%H:%M:%S"))
+            except ValueError:
+                return 0.0
+    return 0.0
+
+
+def _field_candidates(payload: Dict[str, Any], field: str) -> List[Any]:
+    mapping = {
+        "service": ["service", "service.name"],
+        "service.name": ["service.name", "service"],
+        "message": ["message", "event.original"],
+        "log.level": ["log.level", "level"],
+        "level": ["level", "log.level"],
+        "trace.id": ["trace.id", "trace_id"],
+        "trace_id": ["trace_id", "trace.id"],
+        "@timestamp": ["@timestamp", "timestamp"],
+        "timestamp": ["timestamp", "@timestamp"],
+    }
+    values: List[Any] = []
+    for key in mapping.get(field, [field]):
+        if key in payload:
+            values.append(payload[key])
+    return values
+
+
+def _matches_local_query_term(payload: Dict[str, Any], term: str) -> bool:
+    normalized = term.strip().strip("()")
+    if not normalized or normalized in {"*", "*:*", "service:*", "service.name:*"}:
+        return True
+
+    if ":" in normalized:
+        field, pattern = normalized.split(":", 1)
+        field = field.strip()
+        pattern = pattern.strip().strip('"').strip("'")
+        values = _field_candidates(payload, field)
+        if pattern == "*":
+            return any(value not in (None, "") for value in values)
+        lowered_pattern = pattern.lower()
+        for value in values:
+            if value in (None, ""):
+                continue
+            candidate = str(value)
+            candidate_lower = candidate.lower()
+            if "*" in lowered_pattern or "?" in lowered_pattern:
+                if fnmatch.fnmatchcase(candidate_lower, lowered_pattern):
+                    return True
+            elif lowered_pattern == candidate_lower or lowered_pattern in candidate_lower:
+                return True
+        return False
+
+    haystack = json.dumps(payload, default=str).lower()
+    return normalized.lower() in haystack
+
+
+def _matches_local_query(payload: Dict[str, Any], query: str) -> bool:
+    normalized = (query or "*").strip()
+    if not normalized or normalized in {"*", "*:*", "service:*", "service.name:*"}:
+        return True
+    if " OR " in normalized:
+        return any(_matches_local_query(payload, part) for part in normalized.split(" OR "))
+    if " AND " in normalized:
+        return all(_matches_local_query(payload, part) for part in normalized.split(" AND "))
+    return _matches_local_query_term(payload, normalized)
+
+
+def _load_local_demo_logs(query: str, service: Optional[str], limit: int, minutes: int) -> List[Dict[str, Any]]:
+    if not os.path.exists(LOCAL_DEMO_LOG_FILE):
+        return []
+
+    min_timestamp = time.time() - max(1, minutes) * 60
+    logs: List[Dict[str, Any]] = []
+
+    try:
+        with open(LOCAL_DEMO_LOG_FILE, "r", encoding="utf-8") as handle:
+            for line in handle:
+                raw_line = line.strip()
+                if not raw_line:
+                    continue
+                try:
+                    payload = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    continue
+
+                if service:
+                    service_value = str(
+                        _field_candidates(payload, "service")[0]
+                    ) if _field_candidates(payload, "service") else ""
+                    if service_value != service:
+                        continue
+                if _parse_timestamp(payload.get("@timestamp")) < min_timestamp:
+                    continue
+                if not _matches_local_query(payload, query):
+                    continue
+
+                logs.append(
+                    {
+                        "timestamp": payload.get("@timestamp") or payload.get("timestamp"),
+                        "service": payload.get("service") or payload.get("service.name"),
+                        "level": payload.get("log.level") or payload.get("level") or "info",
+                        "message": payload.get("message") or json.dumps(payload)[:240],
+                        "trace_id": payload.get("trace.id") or payload.get("trace_id"),
+                        "is_relevant": True,
+                        "raw": payload,
+                    }
+                )
+    except OSError:
+        return []
+
+    logs.sort(key=lambda item: _parse_timestamp(item.get("timestamp")), reverse=True)
+    return logs[: max(1, min(limit, 100))]
+
+
+def _has_local_demo_logs() -> bool:
+    if not os.path.exists(LOCAL_DEMO_LOG_FILE):
+        return False
+    try:
+        return os.path.getsize(LOCAL_DEMO_LOG_FILE) > 0
+    except OSError:
+        return False
+
+
 def _pick_first(payload: Dict[str, Any], paths: List[str], default: Any = None) -> Any:
     for path in paths:
         cursor: Any = payload
@@ -237,7 +379,7 @@ def _fetch_datadog_logs(query: str = "*", service: Optional[str] = None, limit: 
     search_query = _build_datadog_search_query(query, service, "*")
 
     if not api_key or not app_key:
-        fallback_logs: List[Dict[str, Any]] = []
+        fallback_logs = _load_local_demo_logs(query=query, service=service, limit=limit, minutes=minutes)
         source_env = _get_source_env()
 
         if source_env is not None:
@@ -246,13 +388,21 @@ def _fetch_datadog_logs(query: str = "*", service: Optional[str] = None, limit: 
                 for log in source_env.all_logs
                 if not service or str(getattr(log.service, "value", log.service)) == service
             ]
-            fallback_logs = matching_logs[-limit:]
+            fallback_logs.extend(matching_logs)
+
+        fallback_logs.sort(key=lambda item: _parse_timestamp(item.get("timestamp")), reverse=True)
+        fallback_logs = fallback_logs[: max(1, min(limit, 100))]
 
         return {
             "source": "local-fallback",
             "query": search_query,
             "logs": fallback_logs,
-            "note": "DD_API_KEY or DD_APP_KEY not configured. Showing environment logs instead.",
+            "note": (
+                "DD_API_KEY and DD_APP_KEY are not configured. "
+                "Showing locally replayed demo logs and simulator logs instead."
+                if fallback_logs
+                else "DD_API_KEY or DD_APP_KEY not configured. Showing environment logs instead."
+            ),
         }
 
     payload = _build_log_search_payload(
@@ -588,7 +738,11 @@ def _fetch_observability_status() -> Dict[str, Any]:
         "configured": False,
         "connected": False,
         "source": "local-fallback",
-        "message": "No external log provider configured. The dashboard will use simulator logs.",
+        "message": (
+            "No external log provider configured. The dashboard will use locally replayed demo logs and simulator logs."
+            if _has_local_demo_logs()
+            else "No external log provider configured. The dashboard will use simulator logs."
+        ),
     }
 
 

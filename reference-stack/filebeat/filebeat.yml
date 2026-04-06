@@ -1,0 +1,29 @@
+filebeat.inputs:
+  - type: filestream
+    id: orders-service-logs
+    enabled: true
+    paths:
+      - /var/log/reference/*.log
+    parsers:
+      - ndjson:
+          target: ""
+          overwrite_keys: true
+
+processors:
+  - add_fields:
+      target: ""
+      fields:
+        event.dataset: broken-reference
+  - add_tags:
+      tags: ["broken-reference", "orders-service"]
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  index: "broken-ref-logs-%{+yyyy.MM.dd}"
+
+setup.template.name: "broken-ref-logs"
+setup.template.pattern: "broken-ref-logs-*"
+setup.ilm.enabled: false
+
+logging.to_files: false
+logging.level: info

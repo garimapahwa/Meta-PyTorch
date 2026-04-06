@@ -340,6 +340,54 @@ To stop the processes started by the script:
 ./stop-local.sh
 ```
 
+Set `SHUTDOWN_TIMEOUT=15` if you want the stop script to wait longer before force-killing a stuck process.
+
+### Reference Harness
+If you want a small broken service that emits real JSON logs into Elasticsearch for the dashboard to inspect:
+
+```bash
+docker compose -f reference-stack/docker-compose.yml up --build
+```
+
+That stack brings up:
+- the dashboard on `http://localhost:7860`
+- a deliberately flaky `orders-service` on `http://localhost:8081`
+- Elasticsearch on `http://localhost:9200`
+
+The dashboard is preconfigured to read the harness logs from `broken-ref-logs-*`. For usage details and sample queries, see:
+
+```text
+reference-stack/README.md
+```
+
+### Project Error Replay
+If you want to replay this repo's own failure modes into Elasticsearch and diagnose them in the dashboard:
+
+```bash
+.venv/bin/python scripts/seed_project_errors_to_elastic.py --scenario all
+```
+
+If `ELASTICSEARCH_URL` is configured, this seeds Elasticsearch directly. If not, it writes a local replay file under `.run/local-demo-logs.jsonl`, and the dashboard will surface those incidents through the existing `/api/logs` fallback.
+
+This seeds structured demo incidents such as:
+- missing local Elasticsearch install for `run-local.sh`
+- port `7860` already in use
+- missing Docker for the `reference-stack` flow
+
+The seeded logs use:
+- service: `meta-pytorch-demo`
+- incident IDs: `INC-DEMO-*`
+
+Suggested dashboard filters:
+- query: `incident_id:INC-DEMO-*`
+- service: `meta-pytorch-demo`
+
+For a side-by-side terminal layout, run:
+
+```bash
+./demo-side-by-side.sh
+```
+
 ### Hosting
 For a public deployment path and production checklist, see:
 
