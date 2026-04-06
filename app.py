@@ -279,6 +279,8 @@ def _has_local_demo_logs() -> bool:
 
 def _pick_first(payload: Dict[str, Any], paths: List[str], default: Any = None) -> Any:
     for path in paths:
+        if isinstance(payload, dict) and path in payload and payload[path] not in (None, ""):
+            return payload[path]
         cursor: Any = payload
         found = True
         for key in path.split("."):
@@ -318,6 +320,8 @@ def _build_elasticsearch_log_payload(
                     "should": [
                         {"term": {service_field: service}},
                         {"term": {f"{service_field}.keyword": service}},
+                        {"term": {"service.name": service}},
+                        {"term": {"service.name.keyword": service}},
                     ],
                     "minimum_should_match": 1,
                 }

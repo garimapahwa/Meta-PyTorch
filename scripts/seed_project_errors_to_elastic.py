@@ -61,7 +61,6 @@ def docs_for_scenario(name: str) -> List[Dict[str, Any]]:
     now = datetime.now(timezone.utc).replace(microsecond=0)
     service = "meta-pytorch-demo"
     base = {
-        "service": service,
         "event.dataset": "meta-pytorch.demo",
         "service.name": service,
         "repo": "Meta PyTorch",
