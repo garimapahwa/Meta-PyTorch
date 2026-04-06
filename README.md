@@ -1,3 +1,13 @@
+---
+title: Meta Pytorch
+emoji: 🚨
+colorFrom: red
+colorTo: gray
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Distributed Incident War Room Environment
 
 A production-ready OpenEnv environment for **real-world SRE debugging simulation**. An AI agent operates as a Site Reliability Engineer inside a live war room, actively operating distributed microservices systems during simultaneous production incidents.
@@ -330,9 +340,11 @@ If you want the local Elasticsearch node and the FastAPI app to come up together
 ```
 
 This script:
-- starts Elasticsearch on `127.0.0.1:9200` if it is not already running
+- starts Elasticsearch on `127.0.0.1:9200` if it is not already running and the local distribution is available
 - starts the app on `127.0.0.1:7860` if it is not already running
-- waits for both services to become healthy
+- uses `ELASTICSEARCH_URL` from `.env` when you point at a remote cluster
+- falls back to local replayed/demo logs when no Elasticsearch backend is available
+- waits for the app, and for Elasticsearch only when it is expected to start locally
 
 To stop the processes started by the script:
 

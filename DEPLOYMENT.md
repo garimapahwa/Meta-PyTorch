@@ -16,8 +16,15 @@ Hugging Face Spaces is the cleanest fit for this repo because:
 3. Choose:
    - SDK: `Docker`
    - Visibility: your choice
-4. Connect the Space to your GitHub repo or push the repo directly.
-5. In the Space settings, add variables or secrets for anything sensitive.
+4. Make sure the repo `README.md` starts with Hugging Face Space front matter, including at least:
+   - `title`
+   - `emoji`
+   - `colorFrom`
+   - `colorTo`
+   - `sdk: docker`
+   - `app_port: 7860`
+5. Connect the Space to your GitHub repo or push the repo directly.
+6. In the Space settings, add variables or secrets for anything sensitive.
 
 Recommended secrets and variables:
 

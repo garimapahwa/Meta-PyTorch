@@ -54,19 +54,26 @@ if [ ! -x "$VENV_PYTHON" ]; then
   exit 1
 fi
 
-if [ ! -d "$ES_DIR" ]; then
-  echo "Elasticsearch directory not found at $ES_DIR" >&2
-  echo "Extract the Elasticsearch tarball first or ask me to install it again." >&2
-  exit 1
-fi
-
 if [ ! -f "$ROOT_DIR/.env" ]; then
   echo ".env not found in $ROOT_DIR" >&2
   echo "Create it first. The app expects local settings there." >&2
   exit 1
 fi
 
-if ! is_listening 9200; then
+# Export .env values so the app and bootstrap logic share the same configuration.
+set -a
+source "$ROOT_DIR/.env"
+set +a
+
+LOG_BACKEND_MODE="local-fallback"
+
+if is_listening 9200; then
+  echo "Elasticsearch is already listening on 127.0.0.1:9200."
+  LOG_BACKEND_MODE="local-elasticsearch"
+elif [ -n "${ELASTICSEARCH_URL:-}" ] && [ "${ELASTICSEARCH_URL}" != "$ES_URL" ]; then
+  echo "Remote Elasticsearch configured at ${ELASTICSEARCH_URL}; skipping local Elasticsearch startup."
+  LOG_BACKEND_MODE="remote-elasticsearch"
+elif [ -d "$ES_DIR" ]; then
   echo "Starting Elasticsearch on 127.0.0.1:9200..."
   nohup env -u CLASSPATH -u JAVA_HOME \
     ES_JAVA_OPTS='-Xms512m -Xmx512m' \
@@ -85,8 +92,10 @@ if ! is_listening 9200; then
     echo "Check $ES_LOG_FILE and $ROOT_DIR/elasticsearch-logs/elasticsearch.log" >&2
     exit 1
   fi
+  LOG_BACKEND_MODE="local-elasticsearch"
 else
-  echo "Elasticsearch is already listening on 127.0.0.1:9200."
+  echo "Local Elasticsearch directory not found at $ES_DIR."
+  echo "Continuing in local fallback mode. The app will still start and use replayed/demo logs."
 fi
 
 if ! is_listening "$APP_PORT"; then
@@ -108,6 +117,13 @@ fi
 echo
 echo "Local stack is ready."
 echo "App:    ${APP_URL}"
-echo "Elastic:${ES_URL}"
+if [ "$LOG_BACKEND_MODE" = "local-elasticsearch" ]; then
+  echo "Elastic:${ES_URL}"
+elif [ "$LOG_BACKEND_MODE" = "remote-elasticsearch" ]; then
+  echo "Elastic:${ELASTICSEARCH_URL}"
+else
+  echo "Elastic:disabled (local fallback mode)"
+fi
+echo "Logs:   ${LOG_BACKEND_MODE}"
 echo "Status: ${APP_URL}/api/observability/status"
-echo "Logs:   ${APP_URL}/api/logs?query=*&limit=5&minutes=15"
+echo "Query:  ${APP_URL}/api/logs?query=*&limit=5&minutes=15"
