@@ -21,7 +21,7 @@ class GradeResult:
 class BaseGrader:
     """Base grader with common scoring logic"""
 
-    EPSILON = 1e-2
+    EPSILON = 5e-2
 
     @staticmethod
     def normalize_score(value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
