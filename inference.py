@@ -26,6 +26,7 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 # Optional if you use from_docker_image().
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 client: Optional[OpenAI] = None
+DEFAULT_TASK_IDS = ["easy_0", "medium_0", "hard_0"]
 
 
 def emit_event(marker: str, payload: dict) -> None:
@@ -214,16 +215,16 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
     # Compute final grade
     grade = env.get_grade()
     episode_data["final_grade"] = {
-        "score": round(float(grade["score"]), 4),
-        "correctness": round(float(grade["correctness"]), 4),
-        "efficiency": round(float(grade["efficiency"]), 4),
-        "damage": round(float(grade["damage"]), 4),
+        "score": float(grade["score"]),
+        "correctness": float(grade["correctness"]),
+        "efficiency": float(grade["efficiency"]),
+        "damage": float(grade["damage"]),
     }
 
     emit_event("[END]", {
         "status": "completed",
         "steps_taken": step_count,
-        "final_score": round(float(grade["score"]), 4),
+        "final_score": float(grade["score"]),
         "resolved_incidents": env.resolved_incidents,
     })
 
@@ -231,10 +232,22 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
 
 
 def main():
-    """Run a single evaluation episode with strict structured stdout only."""
-    task_id = os.getenv("TASK_ID", "easy_0")
+    """Run one or more evaluation episodes with strict structured stdout only."""
+    task_ids_env = os.getenv("TASK_IDS")
+    task_id = os.getenv("TASK_ID")
     max_steps = int(os.getenv("MAX_STEPS", "30"))
-    return run_episode(task_id=task_id, max_steps=max_steps)
+
+    if task_ids_env:
+        task_ids = [task.strip() for task in task_ids_env.split(",") if task.strip()]
+    elif task_id:
+        task_ids = [task_id]
+    else:
+        task_ids = DEFAULT_TASK_IDS
+
+    results = []
+    for current_task_id in task_ids:
+        results.append(run_episode(task_id=current_task_id, max_steps=max_steps))
+    return results
 
 
 if __name__ == "__main__":
