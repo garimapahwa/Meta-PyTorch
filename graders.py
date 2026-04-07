@@ -21,6 +21,8 @@ class GradeResult:
 class BaseGrader:
     """Base grader with common scoring logic"""
 
+    EPSILON = 1e-6
+
     @staticmethod
     def normalize_score(value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
         """Normalize value to [0.0, 1.0]"""
@@ -42,6 +44,11 @@ class BaseGrader:
             efficiency * efficiency_weight +
             damage * damage_weight
         )
+
+    @classmethod
+    def clamp_open_interval(cls, value: float) -> float:
+        """Clamp values into the strict open interval (0, 1)."""
+        return min(1.0 - cls.EPSILON, max(cls.EPSILON, value))
 
 
 class EasyTaskGrader(BaseGrader):
@@ -91,14 +98,14 @@ class EasyTaskGrader(BaseGrader):
         )
         
         return GradeResult(
-            score=final_score,
-            correctness=correctness,
-            efficiency=efficiency,
-            damage=damage,
+            score=self.clamp_open_interval(final_score),
+            correctness=self.clamp_open_interval(correctness),
+            efficiency=self.clamp_open_interval(efficiency),
+            damage=self.clamp_open_interval(damage),
             components={
-                "correctness": correctness,
-                "efficiency": efficiency,
-                "damage": damage,
+                "correctness": self.clamp_open_interval(correctness),
+                "efficiency": self.clamp_open_interval(efficiency),
+                "damage": self.clamp_open_interval(damage),
             },
             details={
                 "task_difficulty": "easy",
@@ -163,14 +170,14 @@ class MediumTaskGrader(BaseGrader):
         )
         
         return GradeResult(
-            score=final_score,
-            correctness=correctness,
-            efficiency=efficiency,
-            damage=damage,
+            score=self.clamp_open_interval(final_score),
+            correctness=self.clamp_open_interval(correctness),
+            efficiency=self.clamp_open_interval(efficiency),
+            damage=self.clamp_open_interval(damage),
             components={
-                "correctness": correctness,
-                "efficiency": efficiency,
-                "damage": damage,
+                "correctness": self.clamp_open_interval(correctness),
+                "efficiency": self.clamp_open_interval(efficiency),
+                "damage": self.clamp_open_interval(damage),
             },
             details={
                 "task_difficulty": "medium",
@@ -236,14 +243,14 @@ class HardTaskGrader(BaseGrader):
         )
         
         return GradeResult(
-            score=final_score,
-            correctness=correctness,
-            efficiency=efficiency,
-            damage=damage,
+            score=self.clamp_open_interval(final_score),
+            correctness=self.clamp_open_interval(correctness),
+            efficiency=self.clamp_open_interval(efficiency),
+            damage=self.clamp_open_interval(damage),
             components={
-                "correctness": correctness,
-                "efficiency": efficiency,
-                "damage": damage,
+                "correctness": self.clamp_open_interval(correctness),
+                "efficiency": self.clamp_open_interval(efficiency),
+                "damage": self.clamp_open_interval(damage),
             },
             details={
                 "task_difficulty": "hard",
