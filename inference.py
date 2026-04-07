@@ -19,6 +19,7 @@ from models import Action, ActionType, ServiceName, MetricType
 
 # Required submission environment variables.
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+API_KEY = os.getenv("API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
@@ -35,14 +36,15 @@ def emit_event(marker: str, payload: dict) -> None:
 
 
 def get_openai_client() -> Optional[OpenAI]:
-    """Create the OpenAI client only when credentials are available."""
+    """Create the OpenAI client using the evaluator-injected proxy credentials."""
     global client
     if client is not None:
         return client
-    if not OPENAI_API_KEY:
+    resolved_api_key = API_KEY or OPENAI_API_KEY
+    if not resolved_api_key:
         return None
     client = OpenAI(
-        api_key=OPENAI_API_KEY,
+        api_key=resolved_api_key,
         base_url=API_BASE_URL,
     )
     return client
@@ -87,7 +89,7 @@ Choose the most useful next action. Think step by step.
         try:
             openai_client = get_openai_client()
             if openai_client is None:
-                raise RuntimeError("OPENAI_API_KEY is not configured")
+                raise RuntimeError("API_KEY is not configured")
 
             response = openai_client.chat.completions.create(
                 model=MODEL_NAME,
