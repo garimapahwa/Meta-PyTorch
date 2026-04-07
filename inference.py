@@ -18,14 +18,13 @@ from models import Action, ActionType, ServiceName, MetricType
 
 
 # Required submission environment variables.
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-API_KEY = os.getenv("API_KEY")
+API_BASE_URL = os.environ["API_BASE_URL"]
+API_KEY = os.environ["API_KEY"]
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 # Optional if you use from_docker_image().
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client: Optional[OpenAI] = None
 
 
@@ -40,11 +39,8 @@ def get_openai_client() -> Optional[OpenAI]:
     global client
     if client is not None:
         return client
-    resolved_api_key = API_KEY or OPENAI_API_KEY
-    if not resolved_api_key:
-        return None
     client = OpenAI(
-        api_key=resolved_api_key,
+        api_key=API_KEY,
         base_url=API_BASE_URL,
     )
     return client
@@ -86,25 +82,18 @@ Available Actions:
 Choose the most useful next action. Think step by step.
 """
         
-        try:
-            openai_client = get_openai_client()
-            if openai_client is None:
-                raise RuntimeError("API_KEY is not configured")
-
-            response = openai_client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": "You are an expert SRE. Choose one action."},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.3,
-                max_tokens=100,
-                timeout=5.0,
-            )
-            response_text = response.choices[0].message.content.lower()
-        except (APIError, Exception):
-            # Fallback if LLM call fails
-            response_text = "query_logs api_gateway"
+        openai_client = get_openai_client()
+        response = openai_client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": "You are an expert SRE. Choose one action."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=100,
+            timeout=5.0,
+        )
+        response_text = (response.choices[0].message.content or "").lower()
 
         # Parse response into action
         if "query_logs" in response_text:
