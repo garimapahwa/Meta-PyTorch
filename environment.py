@@ -631,11 +631,14 @@ class DevOpsWarRoomEnv:
                 actions_log=self.actions_log,
             )
 
+        def _safe_grade_value(value: float) -> float:
+            return min(0.9, max(0.1, float(value)))
+
         return {
-            "score": result.score,
-            "correctness": result.correctness,
-            "efficiency": result.efficiency,
-            "damage": result.damage,
+            "score": _safe_grade_value(result.score),
+            "correctness": _safe_grade_value(result.correctness),
+            "efficiency": _safe_grade_value(result.efficiency),
+            "damage": _safe_grade_value(result.damage),
             "details": result.details,
         }
 
