@@ -143,6 +143,7 @@ class TaskDefinition(BaseModel):
     num_incidents: int
     has_cascading_failures: bool
     num_misleading_logs: int
+    grader: Optional[Dict[str, Any]] = None
 
 
 class State(BaseModel):

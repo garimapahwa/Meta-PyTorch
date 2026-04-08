@@ -186,6 +186,17 @@ class TaskGenerator:
     """Generate task-specific scenarios deterministically"""
 
     @staticmethod
+    def grader_metadata(difficulty: str) -> Dict:
+        return {
+            "type": "deterministic",
+            "difficulty": difficulty,
+            "score_range": {
+                "min_exclusive": 0.001,
+                "max_exclusive": 0.999,
+            },
+        }
+
+    @staticmethod
     def generate_easy_task(seed: int = 0) -> Dict:
         """Easy task: Single incident, clear logs"""
         random.seed(seed)
@@ -200,6 +211,7 @@ class TaskGenerator:
             "num_incidents": 1,
             "has_cascading_failures": False,
             "num_misleading_logs": len(scenario.get("misleading_logs", [])),
+            "grader": TaskGenerator.grader_metadata("easy"),
             "scenario": scenario,
         }
 
@@ -218,6 +230,7 @@ class TaskGenerator:
             "num_incidents": 2,
             "has_cascading_failures": True,
             "num_misleading_logs": len(scenario.get("misleading_logs", [])),
+            "grader": TaskGenerator.grader_metadata("medium"),
             "scenario": scenario,
         }
 
@@ -236,6 +249,7 @@ class TaskGenerator:
             "num_incidents": 3,
             "has_cascading_failures": True,
             "num_misleading_logs": 4,
+            "grader": TaskGenerator.grader_metadata("hard"),
             "scenario": scenario,
         }
 

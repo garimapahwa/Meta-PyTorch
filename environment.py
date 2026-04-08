@@ -593,6 +593,7 @@ class DevOpsWarRoomEnv:
                 num_incidents=self.task_config.get("num_incidents", 1),
                 has_cascading_failures=self.task_config.get("has_cascading_failures", False),
                 num_misleading_logs=self.task_config.get("num_misleading_logs", 0),
+                grader=self.task_config.get("grader"),
             ),
             resolved_incidents=self.resolved_incidents,
             incorrect_resolutions=self.incorrect_resolutions,
