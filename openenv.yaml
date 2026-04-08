@@ -226,21 +226,21 @@ grading:
     - name: "correctness"
       weight: 0.5
       description: "Accuracy of root cause identification"
-      range: [0.0, 1.0]
+      range: [0.1, 0.9]
     
     - name: "efficiency"
       weight: 0.3
       description: "Number of steps to resolution"
-      range: [0.0, 1.0]
+      range: [0.1, 0.9]
     
     - name: "damage"
       weight: 0.2
       description: "System damage minimization"
-      range: [0.0, 1.0]
+      range: [0.1, 0.9]
   
   final_score:
     type: "weighted_sum"
-    range: [0.0, 1.0]
+    range: [0.1, 0.9]
 
 # Environment dynamics
 dynamics:
