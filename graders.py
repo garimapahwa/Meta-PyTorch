@@ -10,7 +10,7 @@ from dataclasses import dataclass
 @dataclass
 class GradeResult:
     """Result of grading an episode"""
-    score: float  # 0.0 to 1.0
+    score: float  # strictly (0.0, 1.0) — never exactly 0 or 1
     correctness: float
     efficiency: float
     damage: float
@@ -23,11 +23,11 @@ class BaseGrader:
 
     EPSILON = 1e-3
 
-    @staticmethod
-    def normalize_score(value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
-        """Normalize value to [0.0, 1.0]"""
+    @classmethod
+    def normalize_score(cls, value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
+        """Normalize value to strict open interval (0, 1)"""
         normalized = (value - min_val) / (max_val - min_val)
-        return max(0.0, min(1.0, normalized))
+        return cls.clamp_open_interval(normalized)
 
     @staticmethod
     def compute_final_score(
