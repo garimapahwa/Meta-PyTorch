@@ -218,7 +218,7 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
         step_log = {
             "step": step_count,
             "action": action.action_type.value,
-            "reward": round(float(reward.value), 4),
+            "reward": safe_submission_score(round(float(reward.value), 4)),
             "done": done,
             "damage_score": safe_submission_score(round(float(env.damage_score), 4)),
             "info": info,

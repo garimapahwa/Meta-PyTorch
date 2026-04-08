@@ -4833,6 +4833,13 @@ async def get_task(task_id: str):
         "description": task["description"],
         "max_steps": task["max_steps"],
         "num_incidents": task["num_incidents"],
+        "grader": {
+            "type": "deterministic",
+            "score_range": {
+                "min_exclusive": 0.001,
+                "max_exclusive": 0.999,
+            },
+        },
     }
 
 

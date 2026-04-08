@@ -281,7 +281,7 @@ validation:
     - "HTTP 200 on /ping"
     - "Docker build succeeds"
     - "inference.py runs without error"
-    - "Graders produce scores in [0.0, 1.0]"
+    - "Graders produce scores strictly in (0.001, 0.999)"
     - "Environment deterministic with seed"
 
 # Deployment specification
