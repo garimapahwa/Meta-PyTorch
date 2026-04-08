@@ -218,9 +218,9 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
         step_log = {
             "step": step_count,
             "action": action.action_type.value,
-            "reward": safe_submission_score(round(float(reward.value), 4)),
+            "reward": round(float(reward.value), 4),
             "done": done,
-            "damage_score": safe_submission_score(round(float(env.damage_score), 4)),
+            "damage_score": round(float(env.damage_score), 4),
             "info": info,
         }
         emit_event("[STEP]", step_log)
@@ -240,7 +240,6 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
     emit_event("[END]", {
         "status": "completed",
         "steps_taken": step_count,
-        "score": safe_submission_score(grade["score"]),
         "final_score": safe_submission_score(grade["score"]),
         "resolved_incidents": env.resolved_incidents,
     })
@@ -274,7 +273,6 @@ if __name__ == "__main__":
     except Exception as exc:
         emit_event("[END]", {
             "status": "failed",
-            "score": safe_submission_score(0.001),
             "final_score": safe_submission_score(0.001),
             "error": str(exc),
         })
