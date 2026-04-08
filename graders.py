@@ -37,15 +37,13 @@ class BaseGrader:
         efficiency_weight: float = 0.3,
         damage_weight: float = 0.2,
     ) -> float:
-        """Weighted combination of scoring components"""
+        """Binary pass/fail scoring based on weighted components."""
         score = (
             correctness * correctness_weight +
             efficiency * efficiency_weight +
             damage * damage_weight
         )
-        # Ensure the final score is strictly inside (0, 1)
-        epsilon = 1e-4
-        return max(epsilon, min(1.0 - epsilon, score))
+        return 1 if score >= 0.5 else 0
 
 
 class EasyTaskGrader(BaseGrader):
@@ -76,8 +74,7 @@ class EasyTaskGrader(BaseGrader):
         damage_raw = 1.0 - damage_score
         damage = self.safe_score(damage_raw)
 
-        final_score_raw = self.compute_final_score(correctness, efficiency, damage)
-        final_score = self.safe_score(final_score_raw)
+        final_score = self.compute_final_score(correctness, efficiency, damage)
 
         return GradeResult(
             score=final_score,
@@ -132,13 +129,12 @@ class MediumTaskGrader(BaseGrader):
         damage_raw = 1.0 - (damage_score * 1.5)
         damage = self.safe_score(damage_raw)
 
-        final_score_raw = self.compute_final_score(
+        final_score = self.compute_final_score(
             correctness, efficiency, damage,
             correctness_weight=0.5,
             efficiency_weight=0.25,
             damage_weight=0.25,
         )
-        final_score = self.safe_score(final_score_raw)
 
         return GradeResult(
             score=final_score,
@@ -193,13 +189,12 @@ class HardTaskGrader(BaseGrader):
         damage_raw = 1.0 - (damage_score * 1.5)
         damage = self.safe_score(damage_raw)
 
-        final_score_raw = self.compute_final_score(
+        final_score = self.compute_final_score(
             correctness, efficiency, damage,
             correctness_weight=0.45,
             efficiency_weight=0.30,
             damage_weight=0.25,
         )
-        final_score = self.safe_score(final_score_raw)
 
         return GradeResult(
             score=final_score,
