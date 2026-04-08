@@ -37,15 +37,15 @@ class BaseGrader:
         efficiency_weight: float = 0.3,
         damage_weight: float = 0.2,
     ) -> float:
-        return (
+        """Weighted combination of scoring components"""
+        score = (
             correctness * correctness_weight +
             efficiency * efficiency_weight +
             damage * damage_weight
         )
-
-    @classmethod
-    def clamp_open_interval(cls, value: float) -> float:
-        return cls.safe_score(value)
+        # Ensure the final score is strictly inside (0, 1)
+        epsilon = 1e-4
+        return max(epsilon, min(1.0 - epsilon, score))
 
 
 class EasyTaskGrader(BaseGrader):
