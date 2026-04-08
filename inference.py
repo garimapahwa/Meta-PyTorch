@@ -40,7 +40,7 @@ def emit_event(marker: str, payload: dict) -> None:
     print(json.dumps(payload), flush=True)
 
 
-def get_openai_client() -> Optional[OpenAI]:
+def get_openai_client() -> OpenAI:
     """Create the OpenAI client using the evaluator-injected proxy credentials."""
     global client
     if client is not None:
@@ -89,6 +89,7 @@ Choose the most useful next action. Think step by step.
 """
         
         openai_client = get_openai_client()
+        assert openai_client is not None, "OpenAI client could not be initialized"
         response = openai_client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
@@ -107,6 +108,7 @@ Choose the most useful next action. Think step by step.
             return Action(
                 action_type=ActionType.QUERY_LOGS,
                 service=service,
+                metric=None, trace_id=None, incident_id=None, root_cause=None, replicas=None, version=None,
             )
         elif "query_metrics" in response_text:
             service = ServiceName.PAYMENTS if "payment" in response_text else ServiceName.API_GATEWAY
@@ -115,18 +117,21 @@ Choose the most useful next action. Think step by step.
                 action_type=ActionType.QUERY_METRICS,
                 service=service,
                 metric=metric,
+                trace_id=None, incident_id=None, root_cause=None, replicas=None, version=None,
             )
         elif "restart" in response_text:
             service = ServiceName.API_GATEWAY
             return Action(
                 action_type=ActionType.RESTART_SERVICE,
                 service=service,
+                metric=None, trace_id=None, incident_id=None, root_cause=None, replicas=None, version=None,
             )
         elif "resolve" in response_text or "diagnosis" in response_text:
             root_causes = ["db_connection_leak", "bad_payment_deployment", "cache_backend_failure"]
             return Action(
                 action_type=ActionType.RESOLVE_INCIDENT,
                 root_cause=root_causes[0],
+                service=None, metric=None, trace_id=None, incident_id=None, replicas=None, version=None,
             )
         elif "rollback" in response_text:
             service = ServiceName.PAYMENTS
@@ -134,28 +139,33 @@ Choose the most useful next action. Think step by step.
                 action_type=ActionType.ROLLBACK_DEPLOYMENT,
                 service=service,
                 version="v1.2.0",
+                metric=None, trace_id=None, incident_id=None, root_cause=None, replicas=None,
             )
         elif "trace" in response_text:
             return Action(
                 action_type=ActionType.TRACE_REQUEST,
                 trace_id="trace_1234",
+                service=None, metric=None, incident_id=None, root_cause=None, replicas=None, version=None,
             )
         elif "prioritize" in response_text:
             return Action(
                 action_type=ActionType.PRIORITIZE_INCIDENT,
                 incident_id="db_connection_leak",
+                service=None, metric=None, trace_id=None, root_cause=None, replicas=None, version=None,
             )
         elif "scale" in response_text:
             return Action(
                 action_type=ActionType.SCALE_SERVICE,
                 service=ServiceName.API_GATEWAY,
                 replicas=5,
+                metric=None, trace_id=None, incident_id=None, root_cause=None, version=None,
             )
         else:
             # Default to query logs
             return Action(
                 action_type=ActionType.QUERY_LOGS,
                 service=ServiceName.API_GATEWAY,
+                metric=None, trace_id=None, incident_id=None, root_cause=None, replicas=None, version=None,
             )
 
     except Exception as e:
@@ -163,6 +173,7 @@ Choose the most useful next action. Think step by step.
         return Action(
             action_type=ActionType.QUERY_LOGS,
             service=ServiceName.API_GATEWAY,
+            metric=None, trace_id=None, incident_id=None, root_cause=None, replicas=None, version=None,
         )
 
 
@@ -209,7 +220,7 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
             "action": action.action_type.value,
             "reward": round(float(reward.value), 4),
             "done": done,
-            "damage_score": round(float(env.damage_score), 4),
+            "damage_score": safe_submission_score(round(float(env.damage_score), 4)),
             "info": info,
         }
         emit_event("[STEP]", step_log)
@@ -229,6 +240,7 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
     emit_event("[END]", {
         "status": "completed",
         "steps_taken": step_count,
+        "score": safe_submission_score(grade["score"]),
         "final_score": safe_submission_score(grade["score"]),
         "resolved_incidents": env.resolved_incidents,
     })
@@ -262,6 +274,8 @@ if __name__ == "__main__":
     except Exception as exc:
         emit_event("[END]", {
             "status": "failed",
+            "score": safe_submission_score(0.001),
+            "final_score": safe_submission_score(0.001),
             "error": str(exc),
         })
         sys.exit(1)
