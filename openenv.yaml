@@ -179,45 +179,87 @@ reward:
 tasks:
   - task_id: "easy_0"
     difficulty: "easy"
+    name: "Database Connection Pool Exhausted"
     max_steps: 15
     description: "Single incident with clear logs"
     num_incidents: 1
     has_cascading_failures: false
+    grader:
+      type: "deterministic"
+      difficulty: "easy"
+      score_range:
+        min_exclusive: 0.001
+        max_exclusive: 0.999
   
   - task_id: "easy_1"
     difficulty: "easy"
+    name: "Payment Service Deployment Failed"
     max_steps: 15
     description: "Single incident with clear logs (variant 2)"
     num_incidents: 1
     has_cascading_failures: false
+    grader:
+      type: "deterministic"
+      difficulty: "easy"
+      score_range:
+        min_exclusive: 0.001
+        max_exclusive: 0.999
   
   - task_id: "medium_0"
     difficulty: "medium"
+    name: "Cache Failure + API Gateway Overload"
     max_steps: 25
     description: "Multiple services with misleading signals"
     num_incidents: 2
     has_cascading_failures: true
+    grader:
+      type: "deterministic"
+      difficulty: "medium"
+      score_range:
+        min_exclusive: 0.001
+        max_exclusive: 0.999
   
   - task_id: "medium_1"
     difficulty: "medium"
+    name: "Traffic Spike + Inadequate Scaling"
     max_steps: 25
     description: "Multiple services with misleading signals (variant 2)"
     num_incidents: 2
     has_cascading_failures: true
+    grader:
+      type: "deterministic"
+      difficulty: "medium"
+      score_range:
+        min_exclusive: 0.001
+        max_exclusive: 0.999
   
   - task_id: "hard_0"
     difficulty: "hard"
+    name: "Cascading Auth + Payment Failures"
     max_steps: 30
     description: "Cascading failures with tradeoffs"
     num_incidents: 3
     has_cascading_failures: true
+    grader:
+      type: "deterministic"
+      difficulty: "hard"
+      score_range:
+        min_exclusive: 0.001
+        max_exclusive: 0.999
   
   - task_id: "hard_1"
     difficulty: "hard"
+    name: "Multi-Service Outage with Tradeoffs"
     max_steps: 30
     description: "Complex multi-incident resolution"
     num_incidents: 3
     has_cascading_failures: true
+    grader:
+      type: "deterministic"
+      difficulty: "hard"
+      score_range:
+        min_exclusive: 0.001
+        max_exclusive: 0.999
 
 # Grading specification
 grading:

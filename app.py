@@ -4813,8 +4813,29 @@ async def get_grade():
 @app.get("/tasks")
 async def list_tasks():
     """List available tasks"""
+    tasks = []
+    for task in TASK_DEFINITIONS.values():
+        grader = task.get("grader", {
+            "type": "deterministic",
+            "score_range": {
+                "min_exclusive": 0.001,
+                "max_exclusive": 0.999,
+            },
+        })
+        tasks.append({
+            "task_id": task["task_id"],
+            "difficulty": task["difficulty"],
+            "name": task["name"],
+            "description": task["description"],
+            "max_steps": task["max_steps"],
+            "num_incidents": task["num_incidents"],
+            "has_cascading_failures": task["has_cascading_failures"],
+            "grader": grader,
+            "score_range": grader["score_range"],
+        })
+
     return {
-        "tasks": list(TASK_DEFINITIONS.keys()),
+        "tasks": tasks,
         "difficulties": ["easy", "medium", "hard"],
     }
 
@@ -4833,6 +4854,7 @@ async def get_task(task_id: str):
         "description": task["description"],
         "max_steps": task["max_steps"],
         "num_incidents": task["num_incidents"],
+        "has_cascading_failures": task["has_cascading_failures"],
         "grader": task.get("grader", {
             "type": "deterministic",
             "score_range": {
@@ -4840,6 +4862,13 @@ async def get_task(task_id: str):
                 "max_exclusive": 0.999,
             },
         }),
+        "score_range": task.get("grader", {
+            "type": "deterministic",
+            "score_range": {
+                "min_exclusive": 0.001,
+                "max_exclusive": 0.999,
+            },
+        })["score_range"],
     }
 
 
