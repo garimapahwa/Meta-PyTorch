@@ -24,10 +24,15 @@ class BaseGrader:
     EPSILON = 1e-3
 
     @classmethod
+    def safe_score(cls, value: float) -> float:
+        """Keep any score-like value strictly inside the open interval (0, 1)."""
+        return max(cls.EPSILON, min(1.0 - cls.EPSILON, value))
+
+    @classmethod
     def normalize_score(cls, value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
         """Normalize value to strict open interval (0, 1)"""
         normalized = (value - min_val) / (max_val - min_val)
-        return cls.clamp_open_interval(normalized)
+        return cls.safe_score(normalized)
 
     @staticmethod
     def compute_final_score(
@@ -48,7 +53,7 @@ class BaseGrader:
     @classmethod
     def clamp_open_interval(cls, value: float) -> float:
         """Clamp values into the strict open interval (0, 1)."""
-        return min(1.0 - cls.EPSILON, max(cls.EPSILON, value))
+        return cls.safe_score(value)
 
 
 class EasyTaskGrader(BaseGrader):
@@ -74,20 +79,20 @@ class EasyTaskGrader(BaseGrader):
         
         # Correctness: binary but with partial credit for progress
         if resolved_correctly:
-            correctness = 1.0
+            correctness = self.safe_score(1.0)
         else:
             # Partial credit if agent queried relevant services
             relevant_queries = sum(
                 1 for action in actions_log
                 if action.get("action_type") == "query_logs"
             )
-            correctness = min(0.7, relevant_queries * 0.15)
+            correctness = self.safe_score(min(0.7, relevant_queries * 0.15))
         
         # Efficiency: penalize excessive steps
-        efficiency = max(0.0, 1.0 - (steps_taken / max_steps_expected))
+        efficiency = self.safe_score(1.0 - (steps_taken / max_steps_expected))
         
         # Damage: minimize system degradation
-        damage = max(0.0, 1.0 - damage_score)
+        damage = self.safe_score(1.0 - damage_score)
         
         # Combine scores
         final_score = self.compute_final_score(
@@ -98,14 +103,14 @@ class EasyTaskGrader(BaseGrader):
         )
         
         return GradeResult(
-            score=self.clamp_open_interval(final_score),
-            correctness=self.clamp_open_interval(correctness),
-            efficiency=self.clamp_open_interval(efficiency),
-            damage=self.clamp_open_interval(damage),
+            score=self.safe_score(final_score),
+            correctness=self.safe_score(correctness),
+            efficiency=self.safe_score(efficiency),
+            damage=self.safe_score(damage),
             components={
-                "correctness": self.clamp_open_interval(correctness),
-                "efficiency": self.clamp_open_interval(efficiency),
-                "damage": self.clamp_open_interval(damage),
+                "correctness": self.safe_score(correctness),
+                "efficiency": self.safe_score(efficiency),
+                "damage": self.safe_score(damage),
             },
             details={
                 "task_difficulty": "easy",
@@ -141,7 +146,7 @@ class MediumTaskGrader(BaseGrader):
         
         # Correctness: penalize incorrect diagnoses
         if resolved_correctly:
-            correctness = 1.0 - (incorrect_diagnoses * 0.15)
+            correctness = self.safe_score(1.0 - (incorrect_diagnoses * 0.15))
         else:
             # Partial credit for relevant actions
             relevant_queries = sum(
@@ -152,15 +157,15 @@ class MediumTaskGrader(BaseGrader):
                 1 for action in actions_log
                 if action.get("service") in ["api_gateway", "cache"]  # For this scenario
             )
-            correctness = max(0.0, min(0.6, (relevant_queries * 0.1 + correct_services * 0.2)))
+            correctness = self.safe_score(min(0.6, (relevant_queries * 0.1 + correct_services * 0.2)))
         
-        correctness = max(0.0, min(1.0, correctness))
+        correctness = self.safe_score(correctness)
         
         # Efficiency: penalize inefficient exploration
-        efficiency = max(0.0, 1.0 - (steps_taken / max_steps_expected))
+        efficiency = self.safe_score(1.0 - (steps_taken / max_steps_expected))
         
         # Damage: heavily penalize cascade failures
-        damage = max(0.0, 1.0 - damage_score * 1.5)
+        damage = self.safe_score(1.0 - damage_score * 1.5)
         
         final_score = self.compute_final_score(
             correctness, efficiency, damage,
@@ -170,14 +175,14 @@ class MediumTaskGrader(BaseGrader):
         )
         
         return GradeResult(
-            score=self.clamp_open_interval(final_score),
-            correctness=self.clamp_open_interval(correctness),
-            efficiency=self.clamp_open_interval(efficiency),
-            damage=self.clamp_open_interval(damage),
+            score=self.safe_score(final_score),
+            correctness=self.safe_score(correctness),
+            efficiency=self.safe_score(efficiency),
+            damage=self.safe_score(damage),
             components={
-                "correctness": self.clamp_open_interval(correctness),
-                "efficiency": self.clamp_open_interval(efficiency),
-                "damage": self.clamp_open_interval(damage),
+                "correctness": self.safe_score(correctness),
+                "efficiency": self.safe_score(efficiency),
+                "damage": self.safe_score(damage),
             },
             details={
                 "task_difficulty": "medium",
@@ -221,19 +226,19 @@ class HardTaskGrader(BaseGrader):
             if rc in expected_root_causes
         )
         total_expected = len(expected_root_causes)
-        correctness = correct_count / max(1, total_expected) if total_expected > 0 else 0.5
+        correctness = self.safe_score(correct_count / max(1, total_expected) if total_expected > 0 else 0.5)
         
         # Bonus for sequence optimality
         if resolution_sequence_optimal:
-            correctness = min(1.0, correctness * 1.1)
+            correctness = self.safe_score(correctness * 1.1)
         
-        correctness = max(0.0, min(1.0, correctness))
+        correctness = self.safe_score(correctness)
         
         # Efficiency: heavily penalize excess steps
-        efficiency = max(0.0, 1.0 - (steps_taken / max_steps_expected) * 1.2)
+        efficiency = self.safe_score(1.0 - (steps_taken / max_steps_expected) * 1.2)
         
         # Damage: critical for hard tasks
-        damage = max(0.0, 1.0 - damage_score * 2.0)
+        damage = self.safe_score(1.0 - damage_score * 2.0)
         
         final_score = self.compute_final_score(
             correctness, efficiency, damage,
@@ -243,14 +248,14 @@ class HardTaskGrader(BaseGrader):
         )
         
         return GradeResult(
-            score=self.clamp_open_interval(final_score),
-            correctness=self.clamp_open_interval(correctness),
-            efficiency=self.clamp_open_interval(efficiency),
-            damage=self.clamp_open_interval(damage),
+            score=self.safe_score(final_score),
+            correctness=self.safe_score(correctness),
+            efficiency=self.safe_score(efficiency),
+            damage=self.safe_score(damage),
             components={
-                "correctness": self.clamp_open_interval(correctness),
-                "efficiency": self.clamp_open_interval(efficiency),
-                "damage": self.clamp_open_interval(damage),
+                "correctness": self.safe_score(correctness),
+                "efficiency": self.safe_score(efficiency),
+                "damage": self.safe_score(damage),
             },
             details={
                 "task_difficulty": "hard",
