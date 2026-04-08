@@ -31,7 +31,7 @@ DEFAULT_TASK_IDS = ["easy_0", "medium_0", "hard_0"]
 
 def safe_submission_score(value: float) -> float:
     """Keep emitted scores comfortably inside the validator's open interval."""
-    return min(0.999, max(0.001, float(value)))
+    return min(0.9, max(0.1, float(value)))
 
 
 def emit_event(marker: str, payload: dict) -> None:
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     except Exception as exc:
         emit_event("[END]", {
             "status": "failed",
-            "final_score": safe_submission_score(0.001),
+            "final_score": safe_submission_score(0.1),
             "error": str(exc),
         })
         sys.exit(1)

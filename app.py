@@ -4818,8 +4818,8 @@ async def list_tasks():
         grader = task.get("grader", {
             "type": "deterministic",
             "score_range": {
-                "min_exclusive": 0.001,
-                "max_exclusive": 0.999,
+                "min_exclusive": 0.1,
+                "max_exclusive": 0.9,
             },
         })
         tasks.append({
@@ -4858,15 +4858,15 @@ async def get_task(task_id: str):
         "grader": task.get("grader", {
             "type": "deterministic",
             "score_range": {
-                "min_exclusive": 0.001,
-                "max_exclusive": 0.999,
+                "min_exclusive": 0.1,
+                "max_exclusive": 0.9,
             },
         }),
         "score_range": task.get("grader", {
             "type": "deterministic",
             "score_range": {
-                "min_exclusive": 0.001,
-                "max_exclusive": 0.999,
+                "min_exclusive": 0.1,
+                "max_exclusive": 0.9,
             },
         })["score_range"],
     }

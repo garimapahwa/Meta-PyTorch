@@ -185,8 +185,8 @@ class IncidentScenario:
 class TaskGenerator:
     """Generate task-specific scenarios deterministically"""
 
-    SCORE_MIN_EXCLUSIVE = 0.001
-    SCORE_MAX_EXCLUSIVE = 0.999
+    SCORE_MIN_EXCLUSIVE = 0.1
+    SCORE_MAX_EXCLUSIVE = 0.9
 
     @staticmethod
     def grader_metadata(difficulty: str) -> Dict:

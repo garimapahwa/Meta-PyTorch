@@ -13,7 +13,7 @@ class GradeResult:
 
 
 class BaseGrader:
-    EPSILON = 1e-3
+    EPSILON = 0.1
 
     @classmethod
     def safe_score(cls, value: float) -> float:
@@ -60,7 +60,7 @@ class EasyTaskGrader(BaseGrader):
         max_steps_expected = 15
 
         if resolved_correctly:
-            correctness_raw = 0.99
+            correctness_raw = 0.9
         else:
             relevant_queries = sum(
                 1 for action in actions_log
@@ -112,7 +112,7 @@ class MediumTaskGrader(BaseGrader):
         max_steps_expected = 25
 
         if resolved_correctly:
-            correctness_raw = 0.99 - (incorrect_diagnoses * 0.15)
+            correctness_raw = 0.9 - (incorrect_diagnoses * 0.15)
         else:
             relevant_queries = sum(
                 1 for action in actions_log

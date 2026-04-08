@@ -633,7 +633,7 @@ class DevOpsWarRoomEnv:
             )
 
         def _safe_grade_value(value: float) -> float:
-            return min(0.999, max(0.001, float(value)))
+            return min(0.9, max(0.1, float(value)))
 
         return {
             "score": _safe_grade_value(result.score),

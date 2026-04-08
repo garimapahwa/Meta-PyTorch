@@ -188,8 +188,8 @@ tasks:
       type: "deterministic"
       difficulty: "easy"
       score_range:
-        min_exclusive: 0.001
-        max_exclusive: 0.999
+        min_exclusive: 0.1
+        max_exclusive: 0.9
   
   - task_id: "easy_1"
     difficulty: "easy"
@@ -202,8 +202,8 @@ tasks:
       type: "deterministic"
       difficulty: "easy"
       score_range:
-        min_exclusive: 0.001
-        max_exclusive: 0.999
+        min_exclusive: 0.1
+        max_exclusive: 0.9
   
   - task_id: "medium_0"
     difficulty: "medium"
@@ -216,8 +216,8 @@ tasks:
       type: "deterministic"
       difficulty: "medium"
       score_range:
-        min_exclusive: 0.001
-        max_exclusive: 0.999
+        min_exclusive: 0.1
+        max_exclusive: 0.9
   
   - task_id: "medium_1"
     difficulty: "medium"
@@ -230,8 +230,8 @@ tasks:
       type: "deterministic"
       difficulty: "medium"
       score_range:
-        min_exclusive: 0.001
-        max_exclusive: 0.999
+        min_exclusive: 0.1
+        max_exclusive: 0.9
   
   - task_id: "hard_0"
     difficulty: "hard"
@@ -244,8 +244,8 @@ tasks:
       type: "deterministic"
       difficulty: "hard"
       score_range:
-        min_exclusive: 0.001
-        max_exclusive: 0.999
+        min_exclusive: 0.1
+        max_exclusive: 0.9
   
   - task_id: "hard_1"
     difficulty: "hard"
@@ -258,8 +258,8 @@ tasks:
       type: "deterministic"
       difficulty: "hard"
       score_range:
-        min_exclusive: 0.001
-        max_exclusive: 0.999
+        min_exclusive: 0.1
+        max_exclusive: 0.9
 
 # Grading specification
 grading:
@@ -268,21 +268,21 @@ grading:
     - name: "correctness"
       weight: 0.5
       description: "Accuracy of root cause identification"
-      range: [0.001, 0.999]
+      range: [0.1, 0.9]
     
     - name: "efficiency"
       weight: 0.3
       description: "Number of steps to resolution"
-      range: [0.001, 0.999]
+      range: [0.1, 0.9]
     
     - name: "damage"
       weight: 0.2
       description: "System damage minimization"
-      range: [0.001, 0.999]
+      range: [0.1, 0.9]
   
   final_score:
     type: "weighted_sum"
-    range: [0.001, 0.999]
+    range: [0.1, 0.9]
 
 # Environment dynamics
 dynamics:
@@ -303,7 +303,7 @@ environment_constants:
 evaluation:
   success_criteria:
     - "All incidents must be resolved"
-    - "Final score must be > 0.0"
+    - "Final score must stay strictly within (0.1, 0.9)"
   
   failure_criteria:
     - "Max steps exceeded without resolution"
@@ -323,7 +323,7 @@ validation:
     - "HTTP 200 on /ping"
     - "Docker build succeeds"
     - "inference.py runs without error"
-    - "Graders produce scores strictly in (0.001, 0.999)"
+    - "Graders produce scores strictly in (0.1, 0.9)"
     - "Environment deterministic with seed"
 
 # Deployment specification
