@@ -222,3 +222,19 @@ class HardTaskGrader(BaseGrader):
                 "resolution_sequence_optimal": resolution_sequence_optimal,
             }
         )
+
+
+EASY_GRADER = EasyTaskGrader()
+MEDIUM_GRADER = MediumTaskGrader()
+HARD_GRADER = HardTaskGrader()
+
+
+def get_grader_for_difficulty(difficulty: str):
+    """Return the grader instance for a task difficulty."""
+    if difficulty == "easy":
+        return EASY_GRADER
+    if difficulty == "medium":
+        return MEDIUM_GRADER
+    if difficulty == "hard":
+        return HARD_GRADER
+    return EASY_GRADER
