@@ -177,10 +177,10 @@ Final Score = 0.5 × Correctness + 0.3 × Efficiency + 0.2 × Damage
 | **Damage** | 1 - damage_score | 20% |
 
 **Example:**
-- Correct diagnosis: `correctness = 1.0`
+- Correct diagnosis: `correctness = 0.9`
 - 20 steps of 30: `efficiency = (1 - 20/30) = 0.33`
 - Damage 0.15: `damage = (1 - 0.15) = 0.85`
-- **Score = 0.5(1.0) + 0.3(0.33) + 0.2(0.85) = 0.796**
+- **Score = 0.5(0.9) + 0.3(0.33) + 0.2(0.85) = 0.719**
 
 ### Grader Variants
 
@@ -575,7 +575,7 @@ https://huggingface.co/spaces/Ginnipahwa05/Meta-Pytorch
 - [x] **Inference**: `inference.py` runs, produces deterministic scores
 - [x] **Logging**: Exact format `[START]`, `[STEP]`, `[END]`
 - [x] **Tasks**: 3+ tasks (easy, medium, hard)
-- [x] **Graders**: Deterministic, scores ∈ [0.0, 1.0]
+- [x] **Graders**: Deterministic, emitted scores stay strictly between 0 and 1
 - [x] **Typed Models**: Pydantic Action, Observation, Reward
 - [x] **OpenAI Client**: Used for LLM calls
 - [x] **Env Vars**: API_BASE_URL, MODEL_NAME, HF_TOKEN supported

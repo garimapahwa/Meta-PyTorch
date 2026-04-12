@@ -120,7 +120,7 @@ class Observation(BaseModel):
     current_step: int = Field(0, description="Current step number")
     damage_score: float = Field(
         DEFAULT_DISPLAY_SCORE,
-        description="System damage, emitted as a score strictly between 0.0 and 1.0",
+        description="System damage, emitted as a score strictly between zero and one",
     )
     available_actions: List[str] = Field(
         default_factory=lambda: [a.value for a in ActionType],

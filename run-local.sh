@@ -45,6 +45,49 @@ wait_for_http() {
   return 1
 }
 
+wait_for_exit() {
+  local pid="$1"
+  local timeout="${2:-10}"
+
+  for _ in $(seq 1 "$timeout"); do
+    if ! kill -0 "$pid" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
+stop_listener() {
+  local label="$1"
+  local port="$2"
+  local pid_file="$3"
+  local pid=""
+
+  if [ -f "$pid_file" ]; then
+    pid="$(cat "$pid_file" 2>/dev/null || true)"
+    if [ -n "$pid" ] && ! kill -0 "$pid" >/dev/null 2>&1; then
+      pid=""
+    fi
+  fi
+
+  if [ -z "$pid" ]; then
+    pid="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -1 || true)"
+  fi
+
+  if [ -n "$pid" ] && kill -0 "$pid" >/dev/null 2>&1; then
+    echo "Restarting $label on port $port (pid $pid)..."
+    kill "$pid"
+    if ! wait_for_exit "$pid" 10; then
+      echo "$label did not exit cleanly; forcing shutdown..."
+      kill -9 "$pid" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  rm -f "$pid_file"
+}
+
 require_cmd curl
 require_cmd lsof
 
@@ -98,20 +141,20 @@ else
   echo "Continuing in local fallback mode. The app will still start and use replayed/demo logs."
 fi
 
-if ! is_listening "$APP_PORT"; then
-  echo "Starting app on ${APP_URL}..."
-  nohup env PYTHONPYCACHEPREFIX=/tmp/pycache \
-    "$VENV_PYTHON" -m uvicorn app:app --host "$APP_HOST" --port "$APP_PORT" \
-    >"$APP_LOG_FILE" 2>&1 &
-  echo $! > "$APP_PID_FILE"
+if is_listening "$APP_PORT"; then
+  stop_listener "app" "$APP_PORT" "$APP_PID_FILE"
+fi
 
-  if ! wait_for_http "$APP_URL/ping" 30 1; then
-    echo "App did not become ready in time." >&2
-    echo "Check $APP_LOG_FILE" >&2
-    exit 1
-  fi
-else
-  echo "App is already listening on ${APP_URL}."
+echo "Starting app on ${APP_URL}..."
+nohup env PYTHONPYCACHEPREFIX=/tmp/pycache \
+  "$VENV_PYTHON" -m uvicorn app:app --host "$APP_HOST" --port "$APP_PORT" \
+  >"$APP_LOG_FILE" 2>&1 &
+echo $! > "$APP_PID_FILE"
+
+if ! wait_for_http "$APP_URL/ping" 30 1; then
+  echo "App did not become ready in time." >&2
+  echo "Check $APP_LOG_FILE" >&2
+  exit 1
 fi
 
 echo

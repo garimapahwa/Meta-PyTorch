@@ -154,9 +154,9 @@ observation_space:
     
     damage_score:
       type: "float"
-      minimum: 0.0
-      maximum: 1.0
-      description: "System damage level"
+      min_exclusive: 0.0
+      max_exclusive: 1.0
+      description: "System damage level, emitted strictly between zero and one"
     
     available_actions:
       type: "array"
@@ -268,21 +268,25 @@ grading:
     - name: "correctness"
       weight: 0.5
       description: "Accuracy of root cause identification"
-      range: [0.1, 0.9]
+      min_exclusive: 0.0
+      max_exclusive: 1.0
     
     - name: "efficiency"
       weight: 0.3
       description: "Number of steps to resolution"
-      range: [0.1, 0.9]
+      min_exclusive: 0.0
+      max_exclusive: 1.0
     
     - name: "damage"
       weight: 0.2
       description: "System damage minimization"
-      range: [0.1, 0.9]
+      min_exclusive: 0.0
+      max_exclusive: 1.0
   
   final_score:
     type: "weighted_sum"
-    range: [0.1, 0.9]
+    min_exclusive: 0.0
+    max_exclusive: 1.0
 
 # Environment dynamics
 dynamics:
@@ -303,7 +307,7 @@ environment_constants:
 evaluation:
   success_criteria:
     - "All incidents must be resolved"
-    - "Final score must stay strictly within (0.1, 0.9)"
+    - "Final score must stay strictly between zero and one"
   
   failure_criteria:
     - "Max steps exceeded without resolution"
@@ -323,7 +327,7 @@ validation:
     - "HTTP 200 on /ping"
     - "Docker build succeeds"
     - "inference.py runs without error"
-    - "Graders produce scores strictly in (0.1, 0.9)"
+    - "Graders produce scores strictly between zero and one"
     - "Environment deterministic with seed"
 
 # Deployment specification
