@@ -13,18 +13,19 @@ class GradeResult:
 
 
 class BaseGrader:
-    EPSILON = 0.1
+    MIN_SCORE = 0.1 + 1e-4
+    MAX_SCORE = 0.9 - 1e-4
 
     @classmethod
     def safe_score(cls, value: float) -> float:
         if value is None:
-            return cls.EPSILON
-        return max(cls.EPSILON, min(1.0 - cls.EPSILON, float(value)))
+            return cls.MIN_SCORE
+        return max(cls.MIN_SCORE, min(cls.MAX_SCORE, float(value)))
 
     @classmethod
     def normalize_score(cls, value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
         if max_val <= min_val:
-            return cls.EPSILON
+            return cls.MIN_SCORE
         normalized = (value - min_val) / (max_val - min_val)
         return cls.safe_score(normalized)
 
@@ -43,9 +44,8 @@ class BaseGrader:
             efficiency * efficiency_weight +
             damage * damage_weight
         )
-        # Ensure the final score is strictly inside (0, 1)
-        epsilon = 1e-4
-        return max(epsilon, min(1.0 - epsilon, score))
+        # Ensure the final score is strictly inside (0.1, 0.9)
+        return max(BaseGrader.MIN_SCORE, min(BaseGrader.MAX_SCORE, score))
 
 
 class EasyTaskGrader(BaseGrader):
