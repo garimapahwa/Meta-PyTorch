@@ -39,7 +39,7 @@ class DevOpsWarRoomEnv:
         """Initialize environment state"""
         self.current_step = 0
         self.max_steps = self.task_config.get("max_steps", 20)
-        self.damage_score = 0.0
+        self.damage_score = safe_unit_score(0.0)
         self.resolved_incidents = []
         self.incorrect_resolutions = []
         self.prioritized_incidents = []
@@ -378,7 +378,7 @@ class DevOpsWarRoomEnv:
                 # Restarting healthy service = bad
                 reward = -0.2
                 status.latency_ms *= 1.5  # Temporary increase
-                self.damage_score += 0.1
+                self.damage_score = safe_unit_score(self.damage_score + 0.1)
                 info["reason"] = "service_was_healthy"
                 info["components"]["damage"] = -0.2
             else:
@@ -422,7 +422,7 @@ class DevOpsWarRoomEnv:
             info["note"] = "Root cause fixed via rollback"
         else:
             reward = -0.15  # Unnecessary rollback
-            self.damage_score += 0.05
+            self.damage_score = safe_unit_score(self.damage_score + 0.05)
             info["note"] = "Rollback not needed"
 
         return reward, info
@@ -452,7 +452,7 @@ class DevOpsWarRoomEnv:
             reward = -0.3
             if root_cause:
                 self.incorrect_resolutions.append(root_cause)
-            self.damage_score += 0.05
+            self.damage_score = safe_unit_score(self.damage_score + 0.05)
             info["components"]["wrong_diagnosis"] = -0.3
             info["result"] = "incorrect"
 
@@ -544,7 +544,7 @@ class DevOpsWarRoomEnv:
         unresolved_count = len(self.root_causes) - len(self.resolved_incidents)
         if unresolved_count > 0:
             degradation_rate = 0.02 * unresolved_count
-            self.damage_score = min(1.0, self.damage_score + degradation_rate)
+            self.damage_score = safe_unit_score(self.damage_score + degradation_rate)
             
             # Services degrade
             for service_name, status in self.services_status.items():

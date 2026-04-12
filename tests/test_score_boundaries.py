@@ -17,6 +17,8 @@ def test_environment_grade_payload_uses_open_intervals():
     env = make_env(task_id="easy_0", seed=0)
     env.reset()
 
+    assert_open_unit_score(env.damage_score)
+
     grade = env.get_grade()
 
     assert_open_task_score(grade["score"])
@@ -38,7 +40,7 @@ def test_environment_grade_details_never_emit_exact_one_after_collapse():
             )
         )
 
-    assert env.damage_score == 1.0
+    assert_open_unit_score(env.damage_score)
 
     grade = env.get_grade()
 

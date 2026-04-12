@@ -7,6 +7,8 @@ from typing import Dict, List, Optional, Any
 from enum import Enum
 from pydantic import BaseModel, Field
 
+OPEN_INTERVAL_EPSILON = 1e-4
+
 
 class ActionType(str, Enum):
     """Structured action types for SRE intervention"""
@@ -116,7 +118,10 @@ class Observation(BaseModel):
         default_factory=dict, description="Summary of recent metrics"
     )
     current_step: int = Field(0, description="Current step number")
-    damage_score: float = Field(0.0, description="System damage (0.0-1.0)")
+    damage_score: float = Field(
+        OPEN_INTERVAL_EPSILON,
+        description="System damage, emitted strictly within (0.0, 1.0)",
+    )
     available_actions: List[str] = Field(
         default_factory=lambda: [a.value for a in ActionType],
         description="Available action types"
