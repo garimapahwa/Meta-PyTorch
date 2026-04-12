@@ -4789,6 +4789,12 @@ async def state() -> StateResponse:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def safe_openenv_score(value: float) -> float:
+    min_score = 0.1 + 1e-4
+    max_score = 0.9 - 1e-4
+    return min(max_score, max(min_score, float(value)))
+
+
 @app.get("/grade")
 async def get_grade():
     """Get grade for completed episode"""
@@ -4800,10 +4806,10 @@ async def get_grade():
     try:
         grade = current_env.get_grade()
         return {
-            "score": float(grade["score"]),
-            "correctness": float(grade["correctness"]),
-            "efficiency": float(grade["efficiency"]),
-            "damage": float(grade["damage"]),
+            "score": safe_openenv_score(grade["score"]),
+            "correctness": safe_openenv_score(grade["correctness"]),
+            "efficiency": safe_openenv_score(grade["efficiency"]),
+            "damage": safe_openenv_score(grade["damage"]),
             "details": grade["details"],
         }
     except Exception as e:
