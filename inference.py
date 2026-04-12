@@ -14,6 +14,7 @@ from typing import Optional
 from openai import OpenAI, APIError
 
 from environment import make_env
+from graders import safe_task_score, safe_unit_score
 from models import Action, ActionType, ServiceName, MetricType
 
 
@@ -31,9 +32,7 @@ DEFAULT_TASK_IDS = ["easy_0", "medium_0", "hard_0"]
 
 def safe_submission_score(value: float) -> float:
     """Keep emitted scores comfortably inside the validator's open interval."""
-    min_score = 0.1 + 1e-4
-    max_score = 0.9 - 1e-4
-    return min(max_score, max(min_score, float(value)))
+    return safe_task_score(value)
 
 
 def emit_event(marker: str, payload: dict) -> None:
@@ -222,7 +221,7 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
             "action": action.action_type.value,
             "reward": round(float(reward.value), 4),
             "done": done,
-            "damage_score": round(float(env.damage_score), 4),
+            "damage_score": round(safe_unit_score(env.damage_score), 4),
             "info": info,
         }
         emit_event("[STEP]", step_log)

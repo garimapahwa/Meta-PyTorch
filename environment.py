@@ -14,7 +14,7 @@ from models import (
     ServiceStatus, Alert, LogEntry, MetricType, TaskDefinition
 )
 from tasks import TaskGenerator, TASK_DEFINITIONS
-from graders import get_grader_for_difficulty
+from graders import get_grader_for_difficulty, safe_task_score, safe_unit_score
 
 
 class DevOpsWarRoomEnv:
@@ -209,7 +209,7 @@ class DevOpsWarRoomEnv:
             active_incidents=list(self.root_causes.keys()),
             metrics_summary=self._compute_metrics_summary(),
             current_step=self.current_step,
-            damage_score=self.damage_score,
+            damage_score=safe_unit_score(self.damage_score),
             available_actions=[a.value for a in ActionType],
         )
 
@@ -574,7 +574,7 @@ class DevOpsWarRoomEnv:
             active_incidents=list(self.root_causes.keys()),
             metrics_summary=self._compute_metrics_summary(),
             current_step=self.current_step,
-            damage_score=self.damage_score,
+            damage_score=safe_unit_score(self.damage_score),
             
             # Hidden
             root_causes=self.root_causes,
@@ -632,15 +632,16 @@ class DevOpsWarRoomEnv:
                 actions_log=self.actions_log,
             )
 
-        def _safe_grade_value(value: float) -> float:
-            return min(0.9, max(0.1, float(value)))
+        details = dict(result.details)
+        if "damage_score" in details:
+            details["damage_score"] = safe_unit_score(details["damage_score"])
 
         return {
-            "score": _safe_grade_value(result.score),
-            "correctness": _safe_grade_value(result.correctness),
-            "efficiency": _safe_grade_value(result.efficiency),
-            "damage": _safe_grade_value(result.damage),
-            "details": result.details,
+            "score": safe_task_score(result.score),
+            "correctness": safe_task_score(result.correctness),
+            "efficiency": safe_task_score(result.efficiency),
+            "damage": safe_task_score(result.damage),
+            "details": details,
         }
 
 

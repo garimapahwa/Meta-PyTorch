@@ -13,14 +13,40 @@ class GradeResult:
 
 
 class BaseGrader:
-    MIN_SCORE = 0.1 + 1e-4
-    MAX_SCORE = 0.9 - 1e-4
+    SCORE_EPSILON = 1e-4
+    GRADE_MIN_EXCLUSIVE = 0.1
+    GRADE_MAX_EXCLUSIVE = 0.9
+    MIN_SCORE = GRADE_MIN_EXCLUSIVE + SCORE_EPSILON
+    MAX_SCORE = GRADE_MAX_EXCLUSIVE - SCORE_EPSILON
+
+    @classmethod
+    def clamp_open_interval(
+        cls,
+        value: float,
+        min_exclusive: float = 0.0,
+        max_exclusive: float = 1.0,
+    ) -> float:
+        if max_exclusive <= min_exclusive:
+            midpoint = (min_exclusive + max_exclusive) / 2.0
+            return float(midpoint)
+
+        safe_min = min_exclusive + cls.SCORE_EPSILON
+        safe_max = max_exclusive - cls.SCORE_EPSILON
+        if value is None:
+            return safe_min
+        return max(safe_min, min(safe_max, float(value)))
 
     @classmethod
     def safe_score(cls, value: float) -> float:
-        if value is None:
-            return cls.MIN_SCORE
-        return max(cls.MIN_SCORE, min(cls.MAX_SCORE, float(value)))
+        return cls.clamp_open_interval(
+            value,
+            min_exclusive=cls.GRADE_MIN_EXCLUSIVE,
+            max_exclusive=cls.GRADE_MAX_EXCLUSIVE,
+        )
+
+    @classmethod
+    def safe_unit_interval(cls, value: float) -> float:
+        return cls.clamp_open_interval(value, min_exclusive=0.0, max_exclusive=1.0)
 
     @classmethod
     def normalize_score(cls, value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
@@ -44,8 +70,7 @@ class BaseGrader:
             efficiency * efficiency_weight +
             damage * damage_weight
         )
-        # Ensure the final score is strictly inside (0.1, 0.9)
-        return max(BaseGrader.MIN_SCORE, min(BaseGrader.MAX_SCORE, score))
+        return BaseGrader.safe_score(score)
 
 
 class EasyTaskGrader(BaseGrader):
@@ -93,7 +118,7 @@ class EasyTaskGrader(BaseGrader):
                 "resolved_correctly": resolved_correctly,
                 "steps_taken": steps_taken,
                 "max_steps_expected": max_steps_expected,
-                "damage_score": damage_score,
+                "damage_score": self.safe_unit_interval(damage_score),
             }
         )
 
@@ -153,7 +178,7 @@ class MediumTaskGrader(BaseGrader):
                 "resolved_correctly": resolved_correctly,
                 "steps_taken": steps_taken,
                 "max_steps_expected": max_steps_expected,
-                "damage_score": damage_score,
+                "damage_score": self.safe_unit_interval(damage_score),
                 "incorrect_diagnoses": incorrect_diagnoses,
             }
         )
@@ -215,7 +240,7 @@ class HardTaskGrader(BaseGrader):
                 "expected_root_causes": expected_root_causes,
                 "steps_taken": steps_taken,
                 "max_steps_expected": max_steps_expected,
-                "damage_score": damage_score,
+                "damage_score": self.safe_unit_interval(damage_score),
                 "resolution_sequence_optimal": resolution_sequence_optimal,
             }
         )
@@ -235,3 +260,13 @@ def get_grader_for_difficulty(difficulty: str):
     if difficulty == "hard":
         return HARD_GRADER
     return EASY_GRADER
+
+
+def safe_task_score(value: float) -> float:
+    """Clamp emitted grading outputs into the required open interval."""
+    return BaseGrader.safe_score(value)
+
+
+def safe_unit_score(value: float) -> float:
+    """Clamp auxiliary score-like metrics into the open unit interval."""
+    return BaseGrader.safe_unit_interval(value)

@@ -18,6 +18,7 @@ import requests
 from dotenv import load_dotenv
 
 from environment import make_env, DevOpsWarRoomEnv
+from graders import safe_task_score, safe_unit_score
 from models import Action, ActionType, ServiceName, MetricType, Observation, Reward
 from scripts.seed_project_errors_to_elastic import docs_for_scenario
 from tasks import TASK_DEFINITIONS
@@ -4588,7 +4589,7 @@ class SessionResponse(BaseModel):
     current_step: int = 0
     max_steps: int = 0
     done: bool = False
-    damage_score: float = 0.0
+    damage_score: float = safe_unit_score(0.0)
     actions_log: List[Dict[str, Any]] = []
     resolved_incidents: List[str] = []
     incorrect_resolutions: List[str] = []
@@ -4610,7 +4611,7 @@ def _build_session_snapshot() -> Dict[str, Any]:
             "current_step": 0,
             "max_steps": 0,
             "done": False,
-            "damage_score": 0.0,
+            "damage_score": safe_unit_score(0.0),
             "actions_log": [],
             "resolved_incidents": [],
             "incorrect_resolutions": [],
@@ -4627,7 +4628,7 @@ def _build_session_snapshot() -> Dict[str, Any]:
         "current_step": current_env.current_step,
         "max_steps": current_env.max_steps,
         "done": current_env._check_done(),
-        "damage_score": float(current_env.damage_score),
+        "damage_score": safe_unit_score(current_env.damage_score),
         "actions_log": list(current_env.actions_log),
         "resolved_incidents": list(current_env.resolved_incidents),
         "incorrect_resolutions": list(current_env.incorrect_resolutions),
@@ -4765,13 +4766,13 @@ async def state() -> StateResponse:
                 "active_incidents": [],
                 "metrics_summary": {},
                 "current_step": 0,
-                "damage_score": 0.0,
+                "damage_score": safe_unit_score(0.0),
                 "available_actions": [a.value for a in ActionType],
             },
             "done": False,
             "max_steps": 0,
             "current_step": 0,
-            "damage_score": 0.0,
+            "damage_score": safe_unit_score(0.0),
         }
 
     try:
@@ -4782,7 +4783,7 @@ async def state() -> StateResponse:
             "done": current_env._check_done(),
             "max_steps": current_env.max_steps,
             "current_step": current_env.current_step,
-            "damage_score": float(current_env.damage_score),
+            "damage_score": safe_unit_score(current_env.damage_score),
         }
 
     except Exception as e:
@@ -4790,9 +4791,7 @@ async def state() -> StateResponse:
 
 
 def safe_openenv_score(value: float) -> float:
-    min_score = 0.1 + 1e-4
-    max_score = 0.9 - 1e-4
-    return min(max_score, max(min_score, float(value)))
+    return safe_task_score(value)
 
 
 @app.get("/grade")
