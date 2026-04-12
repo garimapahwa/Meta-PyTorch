@@ -18,7 +18,7 @@ import requests
 from dotenv import load_dotenv
 
 from environment import make_env, DevOpsWarRoomEnv
-from graders import safe_task_score, safe_unit_score
+from graders import safe_display_score, safe_task_score
 from models import Action, ActionType, ServiceName, MetricType, Observation, Reward
 from scripts.seed_project_errors_to_elastic import docs_for_scenario
 from tasks import TASK_DEFINITIONS
@@ -2374,13 +2374,13 @@ def _dashboard_html() -> str:
             </div>
             <div class="surface metric-card" id="metric-damage-card" data-tone="good">
                 <span class="metric-label">Damage</span>
-                <div class="metric-value" id="damage-score">0.00</div>
+                <div class="metric-value" id="damage-score">0.1</div>
                 <div class="metric-foot">Lower is better</div>
             </div>
             <div class="surface metric-card" id="metric-grade-card" data-tone="warn">
                 <span class="metric-label">Grade</span>
-                <div class="metric-value" id="grade-score">-</div>
-                <div class="metric-foot" id="grade-detail">No graded run yet</div>
+                <div class="metric-value" id="grade-score">0.1</div>
+                <div class="metric-foot" id="grade-detail">correctness 0.1 · efficiency 0.1 · damage 0.1</div>
             </div>
         </section>
 
@@ -2727,7 +2727,7 @@ def _dashboard_html() -> str:
                             <div class="mini-metric-grid">
                                 <div class="mini-metric-card">
                                     <span class="summary-label">Reward</span>
-                                    <strong id="action-reward">-</strong>
+                                    <strong id="action-reward">0.0</strong>
                                 </div>
                                 <div class="mini-metric-card">
                                     <span class="summary-label">Action Status</span>
@@ -2749,22 +2749,22 @@ def _dashboard_html() -> str:
                             <div class="score-row">
                                 <span>Overall</span>
                                 <div class="score-track"><span id="grade-score-bar"></span></div>
-                                <strong id="grade-score-mini">-</strong>
+                                <strong id="grade-score-mini">0.1</strong>
                             </div>
                             <div class="score-row">
                                 <span>Correctness</span>
                                 <div class="score-track"><span id="grade-correctness-bar"></span></div>
-                                <strong id="grade-correctness-value">-</strong>
+                                <strong id="grade-correctness-value">0.1</strong>
                             </div>
                             <div class="score-row">
                                 <span>Efficiency</span>
                                 <div class="score-track"><span id="grade-efficiency-bar"></span></div>
-                                <strong id="grade-efficiency-value">-</strong>
+                                <strong id="grade-efficiency-value">0.1</strong>
                             </div>
                             <div class="score-row">
                                 <span>Damage</span>
                                 <div class="score-track"><span id="grade-damage-bar"></span></div>
-                                <strong id="grade-damage-value">-</strong>
+                                <strong id="grade-damage-value">0.1</strong>
                             </div>
                         </div>
                     </div>
@@ -3198,28 +3198,46 @@ def _dashboard_html() -> str:
             `).join("");
         }
 
+        const DEFAULT_SCORE_VALUE = 0.1;
+
+        function normalizeScoreValue(value) {
+            const num = Number(value ?? DEFAULT_SCORE_VALUE);
+            if (!Number.isFinite(num)) return DEFAULT_SCORE_VALUE;
+            const rounded = Number(num.toFixed(1));
+            return Math.max(DEFAULT_SCORE_VALUE, Math.min(0.9, rounded));
+        }
+
+        function defaultGrade() {
+            return {
+                score: DEFAULT_SCORE_VALUE,
+                correctness: DEFAULT_SCORE_VALUE,
+                efficiency: DEFAULT_SCORE_VALUE,
+                damage: DEFAULT_SCORE_VALUE,
+            };
+        }
+
+        function formatScore(value) {
+            return normalizeScoreValue(value).toFixed(1);
+        }
+
         function renderGradeBreakdown(grade) {
             latestGrade = grade || null;
-            const values = grade ? {
-                score: clampPercent(Number(grade.score || 0) * 100),
-                correctness: clampPercent(Number(grade.correctness || 0) * 100),
-                efficiency: clampPercent(Number(grade.efficiency || 0) * 100),
-                damage: clampPercent(Number(grade.damage || 0) * 100),
-            } : {
-                score: 0,
-                correctness: 0,
-                efficiency: 0,
-                damage: 0,
+            const resolvedGrade = grade || defaultGrade();
+            const values = {
+                score: clampPercent(normalizeScoreValue(resolvedGrade.score) * 100),
+                correctness: clampPercent(normalizeScoreValue(resolvedGrade.correctness) * 100),
+                efficiency: clampPercent(normalizeScoreValue(resolvedGrade.efficiency) * 100),
+                damage: clampPercent(normalizeScoreValue(resolvedGrade.damage) * 100),
             };
 
             el("grade-score-bar").style.width = trackPercent(values.score);
             el("grade-correctness-bar").style.width = trackPercent(values.correctness);
             el("grade-efficiency-bar").style.width = trackPercent(values.efficiency);
             el("grade-damage-bar").style.width = trackPercent(values.damage);
-            setText("grade-score-mini", grade ? formatNumber(grade.score, 2) : "-");
-            setText("grade-correctness-value", grade ? formatNumber(grade.correctness, 2) : "-");
-            setText("grade-efficiency-value", grade ? formatNumber(grade.efficiency, 2) : "-");
-            setText("grade-damage-value", grade ? formatNumber(grade.damage, 2) : "-");
+            setText("grade-score-mini", formatScore(resolvedGrade.score));
+            setText("grade-correctness-value", formatScore(resolvedGrade.correctness));
+            setText("grade-efficiency-value", formatScore(resolvedGrade.efficiency));
+            setText("grade-damage-value", formatScore(resolvedGrade.damage));
             setText("grade-summary", gradeSummaryText(grade));
         }
 
@@ -3686,7 +3704,7 @@ def _dashboard_html() -> str:
 
         function formatNumber(value, digits = 2) {
             const num = Number(value ?? 0);
-            return Number.isFinite(num) ? num.toFixed(digits) : "0.00";
+            return Number.isFinite(num) ? num.toFixed(digits) : "0.0";
         }
 
         async function fetchJson(url, options) {
@@ -4134,13 +4152,14 @@ def _dashboard_html() -> str:
         async function loadGrade() {
             try {
                 const grade = await fetchJson("/grade");
-                setText("grade-score", formatNumber(grade.score, 3));
-                setText("grade-detail", `correctness ${formatNumber(grade.correctness, 2)} · efficiency ${formatNumber(grade.efficiency, 2)} · damage ${formatNumber(grade.damage, 2)}`);
-                setTone("metric-grade-card", toneForGrade(grade.score));
+                setText("grade-score", formatScore(grade.score));
+                setText("grade-detail", `correctness ${formatScore(grade.correctness)} · efficiency ${formatScore(grade.efficiency)} · damage ${formatScore(grade.damage)}`);
+                setTone("metric-grade-card", toneForGrade(normalizeScoreValue(grade.score)));
                 renderGradeBreakdown(grade);
             } catch (error) {
-                setText("grade-score", "-");
-                setText("grade-detail", "Grade available after a run starts");
+                const fallbackGrade = defaultGrade();
+                setText("grade-score", formatScore(fallbackGrade.score));
+                setText("grade-detail", `correctness ${formatScore(fallbackGrade.correctness)} · efficiency ${formatScore(fallbackGrade.efficiency)} · damage ${formatScore(fallbackGrade.damage)}`);
                 setTone("metric-grade-card", "warn");
                 renderGradeBreakdown(null);
             }
@@ -4155,19 +4174,19 @@ def _dashboard_html() -> str:
                 el("stateJson").textContent = JSON.stringify(data, null, 2);
                 setText("step-count", String(data.current_step ?? 0));
                 setText("step-context", `${data.current_step ?? 0} of ${data.max_steps ?? "-"}`);
-                setText("damage-score", formatNumber(data.damage_score, 2));
+                setText("damage-score", formatScore(data.damage_score));
                 setText("env-status", data.done ? "Resolved" : "Active");
                 el("env-status").dataset.state = data.done ? "good" : "warn";
                 setTone("metric-env-card", data.done ? "good" : "warn");
                 setTone("metric-step-card", data.done ? "good" : "warn");
-                setTone("metric-damage-card", toneForDamage(data.damage_score));
+                setTone("metric-damage-card", toneForDamage(normalizeScoreValue(data.damage_score)));
 
                 renderIncidents(observation.active_incidents || []);
                 renderAlerts(observation.alerts || []);
                 renderServices(observation.services_status || []);
 
-                updateDamageBar(data.damage_score || 0);
-                setText("damage-text", `Current damage score is ${formatNumber(data.damage_score, 2)}. Unresolved incidents continue to increase this over time.`);
+                updateDamageBar(normalizeScoreValue(data.damage_score));
+                setText("damage-text", `Current damage score is ${formatScore(data.damage_score)}. Unresolved incidents continue to increase this over time.`);
                 setEnvironmentReady((data.max_steps ?? 0) > 0);
                 syncApmMode();
                 updateWorkspaceGuide();
@@ -4182,7 +4201,7 @@ def _dashboard_html() -> str:
                 el("env-status").dataset.state = "warn";
                 setText("step-count", "0");
                 setText("step-context", "Awaiting reset");
-                setText("damage-score", "0.00");
+                setText("damage-score", formatScore(DEFAULT_SCORE_VALUE));
                 setText("damage-text", "System damage is idle until an environment is running.");
                 setTone("metric-env-card", "warn");
                 setTone("metric-step-card", "warn");
@@ -4190,9 +4209,9 @@ def _dashboard_html() -> str:
                 renderIncidents([]);
                 renderAlerts([]);
                 renderServices([]);
-                updateDamageBar(0);
-                setText("grade-score", "-");
-                setText("grade-detail", "Grade available after a run starts");
+                updateDamageBar(DEFAULT_SCORE_VALUE);
+                setText("grade-score", formatScore(DEFAULT_SCORE_VALUE));
+                setText("grade-detail", `correctness ${formatScore(DEFAULT_SCORE_VALUE)} · efficiency ${formatScore(DEFAULT_SCORE_VALUE)} · damage ${formatScore(DEFAULT_SCORE_VALUE)}`);
                 setTone("metric-grade-card", "warn");
                 setEnvironmentReady(false);
                 syncApmMode();
@@ -4367,7 +4386,7 @@ def _dashboard_html() -> str:
                 lastStepResult = null;
                 setText("action-note", `Incident started for ${scenarioName} with seed ${payload.seed}.`);
                 setText("action-meta", "Fresh observation loaded. Use the action composer or the observability workspace to investigate.");
-                setText("action-reward", "0.00");
+                setText("action-reward", "0.0");
                 setText("action-status", "Started");
                 renderActionComponents({ setup: 0.0 });
                 setBanner("info", "Incident started", `${scenarioName} is ready. Reload the observability tabs whenever you want a fresh read from the active providers.`, "Simulation");
@@ -4453,18 +4472,18 @@ def _dashboard_html() -> str:
         el("applySuggestedActionBtn").addEventListener("click", applySuggestedAction);
         el("focusSuggestedServiceBtn").addEventListener("click", focusSuggestedService);
         el("logPreset").addEventListener("change", applyLogPreset);
-        el("taskId").addEventListener("change", async (event) => {
-            await loadTaskDetails(event.target.value);
-            latestObservation = null;
-            latestSession = null;
+            el("taskId").addEventListener("change", async (event) => {
+                await loadTaskDetails(event.target.value);
+                latestObservation = null;
+                latestSession = null;
             renderIncidents([]);
             renderAlerts([]);
             renderServices([]);
-            renderTimeline(null);
-            renderActionComponents({});
-            setText("action-reward", "-");
-            setText("action-status", "Pending start");
-            setText("action-note", "The newly selected scenario is not running yet.");
+                renderTimeline(null);
+                renderActionComponents({});
+                setText("action-reward", "0.0");
+                setText("action-status", "Pending start");
+                setText("action-note", "The newly selected scenario is not running yet.");
             setText("action-meta", "Click Start Incident to initialize the selected scenario before taking any action.");
             setEnvironmentReady(false);
             updateActionAssistant();
@@ -4589,7 +4608,7 @@ class SessionResponse(BaseModel):
     current_step: int = 0
     max_steps: int = 0
     done: bool = False
-    damage_score: float = safe_unit_score(0.0)
+    damage_score: float = safe_display_score(0.0)
     actions_log: List[Dict[str, Any]] = []
     resolved_incidents: List[str] = []
     incorrect_resolutions: List[str] = []
@@ -4611,7 +4630,7 @@ def _build_session_snapshot() -> Dict[str, Any]:
             "current_step": 0,
             "max_steps": 0,
             "done": False,
-            "damage_score": safe_unit_score(0.0),
+            "damage_score": safe_display_score(0.0),
             "actions_log": [],
             "resolved_incidents": [],
             "incorrect_resolutions": [],
@@ -4628,7 +4647,7 @@ def _build_session_snapshot() -> Dict[str, Any]:
         "current_step": current_env.current_step,
         "max_steps": current_env.max_steps,
         "done": current_env._check_done(),
-        "damage_score": safe_unit_score(current_env.damage_score),
+        "damage_score": safe_display_score(current_env.damage_score),
         "actions_log": list(current_env.actions_log),
         "resolved_incidents": list(current_env.resolved_incidents),
         "incorrect_resolutions": list(current_env.incorrect_resolutions),
@@ -4766,13 +4785,13 @@ async def state() -> StateResponse:
                 "active_incidents": [],
                 "metrics_summary": {},
                 "current_step": 0,
-                "damage_score": safe_unit_score(0.0),
+                "damage_score": safe_display_score(0.0),
                 "available_actions": [a.value for a in ActionType],
             },
             "done": False,
             "max_steps": 0,
             "current_step": 0,
-            "damage_score": safe_unit_score(0.0),
+            "damage_score": safe_display_score(0.0),
         }
 
     try:
@@ -4783,7 +4802,7 @@ async def state() -> StateResponse:
             "done": current_env._check_done(),
             "max_steps": current_env.max_steps,
             "current_step": current_env.current_step,
-            "damage_score": safe_unit_score(current_env.damage_score),
+            "damage_score": safe_display_score(current_env.damage_score),
         }
 
     except Exception as e:
@@ -4800,7 +4819,19 @@ async def get_grade():
     global current_env
     
     if current_env is None:
-        raise HTTPException(status_code=400, detail="Environment not initialized.")
+        return {
+            "score": safe_openenv_score(0.1),
+            "correctness": safe_openenv_score(0.1),
+            "efficiency": safe_openenv_score(0.1),
+            "damage": safe_openenv_score(0.1),
+            "details": {
+                "task_difficulty": "uninitialized",
+                "resolved_correctly": False,
+                "steps_taken": 0,
+                "max_steps_expected": 0,
+                "damage_score": safe_display_score(0.0),
+            },
+        }
 
     try:
         grade = current_env.get_grade()

@@ -14,7 +14,12 @@ from models import (
     ServiceStatus, Alert, LogEntry, MetricType, TaskDefinition
 )
 from tasks import TaskGenerator, TASK_DEFINITIONS
-from graders import get_grader_for_difficulty, safe_task_score, safe_unit_score
+from graders import (
+    get_grader_for_difficulty,
+    safe_display_score,
+    safe_task_score,
+    safe_unit_score,
+)
 
 
 class DevOpsWarRoomEnv:
@@ -209,7 +214,7 @@ class DevOpsWarRoomEnv:
             active_incidents=list(self.root_causes.keys()),
             metrics_summary=self._compute_metrics_summary(),
             current_step=self.current_step,
-            damage_score=safe_unit_score(self.damage_score),
+            damage_score=safe_display_score(self.damage_score),
             available_actions=[a.value for a in ActionType],
         )
 
@@ -574,7 +579,7 @@ class DevOpsWarRoomEnv:
             active_incidents=list(self.root_causes.keys()),
             metrics_summary=self._compute_metrics_summary(),
             current_step=self.current_step,
-            damage_score=safe_unit_score(self.damage_score),
+            damage_score=safe_display_score(self.damage_score),
             
             # Hidden
             root_causes=self.root_causes,
@@ -634,7 +639,7 @@ class DevOpsWarRoomEnv:
 
         details = dict(result.details)
         if "damage_score" in details:
-            details["damage_score"] = safe_unit_score(details["damage_score"])
+            details["damage_score"] = safe_display_score(details["damage_score"])
 
         return {
             "score": safe_task_score(result.score),

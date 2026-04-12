@@ -14,7 +14,7 @@ from typing import Optional
 from openai import OpenAI, APIError
 
 from environment import make_env
-from graders import safe_task_score, safe_unit_score
+from graders import safe_display_score, safe_task_score
 from models import Action, ActionType, ServiceName, MetricType
 
 
@@ -221,7 +221,7 @@ def run_episode(task_id: str = "easy_0", max_steps: int = 20) -> dict:
             "action": action.action_type.value,
             "reward": round(float(reward.value), 4),
             "done": done,
-            "damage_score": round(safe_unit_score(env.damage_score), 4),
+            "damage_score": safe_display_score(env.damage_score),
             "info": info,
         }
         emit_event("[STEP]", step_log)

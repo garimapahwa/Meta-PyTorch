@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Any
 from enum import Enum
 from pydantic import BaseModel, Field
 
-OPEN_INTERVAL_EPSILON = 1e-4
+DEFAULT_DISPLAY_SCORE = 0.1
 
 
 class ActionType(str, Enum):
@@ -119,8 +119,8 @@ class Observation(BaseModel):
     )
     current_step: int = Field(0, description="Current step number")
     damage_score: float = Field(
-        OPEN_INTERVAL_EPSILON,
-        description="System damage, emitted strictly within (0.0, 1.0)",
+        DEFAULT_DISPLAY_SCORE,
+        description="System damage, emitted as a score strictly between 0.0 and 1.0",
     )
     available_actions: List[str] = Field(
         default_factory=lambda: [a.value for a in ActionType],

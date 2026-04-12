@@ -1,3 +1,4 @@
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List, Any
 from dataclasses import dataclass
 
@@ -47,6 +48,22 @@ class BaseGrader:
     @classmethod
     def safe_unit_interval(cls, value: float) -> float:
         return cls.clamp_open_interval(value, min_exclusive=0.0, max_exclusive=1.0)
+
+    @staticmethod
+    def quantize_for_output(
+        value: float,
+        digits: int = 1,
+        min_value: float = 0.1,
+        max_value: float = 0.9,
+    ) -> float:
+        if value is None:
+            return min_value
+
+        quantizer = "0." + ("0" * max(0, digits - 1)) + "1"
+        rounded = float(
+            Decimal(str(float(value))).quantize(Decimal(quantizer), rounding=ROUND_HALF_UP)
+        )
+        return max(min_value, min(max_value, rounded))
 
     @classmethod
     def normalize_score(cls, value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
@@ -118,7 +135,7 @@ class EasyTaskGrader(BaseGrader):
                 "resolved_correctly": resolved_correctly,
                 "steps_taken": steps_taken,
                 "max_steps_expected": max_steps_expected,
-                "damage_score": self.safe_unit_interval(damage_score),
+                "damage_score": safe_display_score(damage_score),
             }
         )
 
@@ -178,7 +195,7 @@ class MediumTaskGrader(BaseGrader):
                 "resolved_correctly": resolved_correctly,
                 "steps_taken": steps_taken,
                 "max_steps_expected": max_steps_expected,
-                "damage_score": self.safe_unit_interval(damage_score),
+                "damage_score": safe_display_score(damage_score),
                 "incorrect_diagnoses": incorrect_diagnoses,
             }
         )
@@ -240,7 +257,7 @@ class HardTaskGrader(BaseGrader):
                 "expected_root_causes": expected_root_causes,
                 "steps_taken": steps_taken,
                 "max_steps_expected": max_steps_expected,
-                "damage_score": self.safe_unit_interval(damage_score),
+                "damage_score": safe_display_score(damage_score),
                 "resolution_sequence_optimal": resolution_sequence_optimal,
             }
         )
@@ -263,10 +280,15 @@ def get_grader_for_difficulty(difficulty: str):
 
 
 def safe_task_score(value: float) -> float:
-    """Clamp emitted grading outputs into the required open interval."""
-    return BaseGrader.safe_score(value)
+    """Clamp emitted grading outputs into a one-decimal score inside (0, 1)."""
+    return BaseGrader.quantize_for_output(BaseGrader.safe_score(value))
+
+
+def safe_display_score(value: float) -> float:
+    """Clamp emitted score-like values into a one-decimal score inside (0, 1)."""
+    return BaseGrader.quantize_for_output(BaseGrader.safe_unit_interval(value))
 
 
 def safe_unit_score(value: float) -> float:
-    """Clamp auxiliary score-like metrics into the open unit interval."""
+    """Clamp internal score-like metrics into the open unit interval."""
     return BaseGrader.safe_unit_interval(value)
